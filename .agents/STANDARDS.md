@@ -44,7 +44,6 @@
 - **Waterfall Visualization:** Custom SVG (no D3 dependency)
 - **Service Topology:** React Flow (if implemented — Tier 3)
 - **Desktop-first:** No responsive mobile layout
-- **Dark-only design:** No light mode, no dark mode toggle (per UI freeze)
 - **Virtual Scrolling:** `@tanstack/react-virtual` for request list
 - **Routing:** React Router
 - **API Client:** Typed fetch functions with React Query hooks

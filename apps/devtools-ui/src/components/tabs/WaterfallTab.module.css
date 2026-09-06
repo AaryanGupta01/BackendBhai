@@ -1,0 +1,212 @@
+.wrap {
+  padding: 12px 0 20px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
+.ruler {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px 0 calc(20px + 240px);
+  margin-bottom: 4px;
+}
+
+.tick {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--dim);
+}
+
+.line {
+  height: 1px;
+  background: var(--border);
+  margin: 0 20px 4px calc(20px + 240px);
+}
+
+.waterfallContainer {
+  position: relative;
+  width: 100%;
+}
+
+/* SVG Overlay positioned exactly over the right chart area */
+.svgOverlay {
+  position: absolute;
+  top: 0;
+  left: calc(20px + 240px);
+  right: 20px;
+  width: calc(100% - 40px - 240px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.errorPathPulse {
+  animation: laser-glow 2s infinite ease-in-out;
+}
+
+.rowsList {
+  position: relative;
+  z-index: 3;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  align-items: center;
+  padding: 0 20px;
+  cursor: pointer;
+  transition: background 0.1s;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.row.open {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.rowErr {
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.rowErr:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 12px;
+  overflow: hidden;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nameGroup {
+  min-width: 0;
+}
+
+.opNameRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.opName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.errTag {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 3px;
+  padding: 0 4px;
+  letter-spacing: 0.03em;
+}
+
+.svcName {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.chart {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.bar {
+  position: absolute;
+  height: 16px;
+  border-radius: 3px;
+  min-width: 3px;
+  display: flex;
+  align-items: center;
+  transition: filter 0.15s;
+  overflow: hidden;
+}
+
+.bar:hover {
+  filter: brightness(1.25);
+}
+
+.barText {
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
+.barErr {
+  border: 1px solid rgba(239, 68, 68, 0.8);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(0, 0, 0, 0.3) 4px,
+    rgba(0, 0, 0, 0.3) 8px
+  );
+}
+
+/* Floating Pinned Error Callout directly on timeline */
+.errorPinCallout {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  animation: laser-glow 2s infinite ease-in-out;
+}
+
+.pinIcon {
+  font-size: 10px;
+}
+
+.pinText {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.detail {
+  padding: 12px 20px 12px calc(20px + 240px);
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  animation: expand 0.15s ease-out;
+}
+
+.detailErr {
+  background: rgba(239, 68, 68, 0.04);
+  border-color: rgba(239, 68, 68, 0.2);
+}
