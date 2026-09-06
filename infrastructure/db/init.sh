@@ -4,7 +4,7 @@ set -e
 echo "=== Initializing BackendBhai Databases ==="
 
 # Create databases if they do not exist
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
     SELECT 'CREATE DATABASE devtools' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'devtools')\gexec
     SELECT 'CREATE DATABASE ecommerce' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ecommerce')\gexec
     GRANT ALL PRIVILEGES ON DATABASE devtools TO "$POSTGRES_USER";

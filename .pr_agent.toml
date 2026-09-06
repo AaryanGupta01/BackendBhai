@@ -1,0 +1,95 @@
+# Qodo Merge (PR-Agent) configuration for BackendBhai
+# Docs: https://qodo-merge-docs.qodo.ai/
+
+[config]
+model = "claude-sonnet-4-20250514"
+enable_review = true
+enable_analyzer = true
+extra_instructions = """
+## Project: BackendBhai
+This is a monorepo with 5 workstreams. Review PRs with these rules in mind:
+
+### Architecture Rules
+- The shared types package is at packages/shared/ and exported as @backendbhai/shared
+- All teams MUST import types from @backendbhai/shared, never define duplicate interfaces
+- OTLP HTTP is the only telemetry transport (no gRPC)
+- OTel Collector runs as a separate Docker container
+- WebSocket payloads must match REST shapes (single RequestSummary type)
+- Request body capture uses custom.http.request.body / custom.http.response.body span attributes
+
+### Code Quality Rules
+- TypeScript strict mode everywhere
+- No `any` types without explicit justification
+- All API responses must follow the contract shape in contracts/API.md
+- All WebSocket events must follow contracts/EVENTS.md
+- All telemetry must follow contracts/TELEMETRY.md
+- Database schemas must match contracts/DATA_MODEL.md
+
+### Workstream Boundaries
+- Dev 1 (Telemetry): packages/instrumentation/, apps/telemetry-collector/
+- Dev 2 (Core): apps/devtools-core/
+- Dev 3 (Frontend): apps/devtools-ui/
+- Dev 4 (Demo): apps/demo-store/, infrastructure/, db/
+- Dev 5 (Integration): contracts/, tests/, docs/, packages/shared/
+
+Do not approve changes that silently modify shared contracts without updating contracts/ docs.
+Do not approve changes that break import paths in other workstreams.
+Flag any `console.log` that lacks trace context correlation.
+"""
+
+[pr_reviewer]
+enable_review_type_feedback = true
+require_all_thresholds_for_review_decision = false
+enable_requires_focused_review = true
+
+[pr_code_suggestions]
+num_code_suggestions = 6
+suggestions_per_chunk = 2
+commit_suggestions = true
+enable_aider = false
+extra_instructions = """
+When suggesting code fixes:
+1. Check if the type is already defined in @backendbhai/shared before suggesting a new interface
+2. Ensure API response shapes match contracts/API.md
+3. Check for proper error handling and loading states
+4. Look for missing trace context in log statements
+5. Verify database queries use proper indexes from the schema
+6. Flag any hardcoded URLs that should be environment variables
+7. Check for proper TypeScript types (no implicit any)
+8. Suggest fixes for bugs, not just style issues
+"""
+
+[pr_description]
+enable_semantic_types_types = true
+enable_pr_type = true
+extra_instructions = """
+Generate a description that includes:
+- Which workstream this change belongs to
+- Whether it touches shared contracts
+- Any breaking changes to APIs or types
+"""
+
+[pr_commands]
+/similar_issue = false
+/help = false
+
+# Auto-trigger on every push (not just PR creation)
+[handle_push_trigger]
+enable = true
+
+# Auto-review settings
+[handle_pr_trigger]
+enable = true
+
+# Ignore generated and config files from review
+[ignore] 
+exclude_patterns = [
+    "graphify-out/**",
+    "*.lock",
+    "dist/**",
+    "node_modules/**",
+    ".env*",
+    "*.sql",
+    "*.html",
+    "Makefile"
+]
