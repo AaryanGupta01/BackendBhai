@@ -7,6 +7,7 @@ import {
 
 import { useRequests, type LiveRequest } from '@/hooks/useRequests';
 import { useTraceDetail, type TraceDetail } from '@/hooks/useTraceDetail';
+import { TopologyGraph } from '@/components/TopologyGraph';
 import { SVC } from '@/data/mock';
 
 function getServiceColor(svc: string | undefined | null): string {
@@ -41,7 +42,7 @@ function safeJson(value: any): string {
 export default function App() {
   const [selectedApiId, setSelectedApiId] = useState<string | null>(null);
   const [filters, setFilters] = useState({ error: false, get: false, post: false });
-  const [activeTab, setActiveTab] = useState<'waterfall' | 'logs' | 'db' | 'ext'>('waterfall');
+  const [activeTab, setActiveTab] = useState<'waterfall' | 'logs' | 'db' | 'ext' | 'topology'>('waterfall');
 
   const { requests, count, loading, error: apiError } = useRequests(5000);
   const { detail, loading: detailLoading } = useTraceDetail(selectedApiId);
@@ -208,7 +209,7 @@ export default function App() {
 
               {/* Tabs */}
               <div className="flex border-b border-slate-200 bg-white shrink-0 px-6">
-                {(['waterfall', 'logs', 'db', 'ext'] as const).map(tab => (
+                {(['waterfall', 'logs', 'db', 'ext', 'topology'] as const).map(tab => (
                   <button key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
@@ -216,7 +217,8 @@ export default function App() {
                     {tab === 'logs' && <Database className="w-3.5 h-3.5 inline mr-1.5" />}
                     {tab === 'db' && <Database className="w-3.5 h-3.5 inline mr-1.5" />}
                     {tab === 'ext' && <Globe className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'waterfall' ? 'Waterfall' : tab === 'logs' ? 'Logs' : tab === 'db' ? 'DB Queries' : 'External APIs'}
+                    {tab === 'topology' && <Activity className="w-3.5 h-3.5 inline mr-1.5" />}
+                    {tab === 'waterfall' ? 'Waterfall' : tab === 'logs' ? 'Logs' : tab === 'db' ? 'DB Queries' : tab === 'ext' ? 'External APIs' : 'Topology'}
                   </button>
                 ))}
               </div>
@@ -295,6 +297,10 @@ export default function App() {
                       <div className="text-center text-sm text-slate-400 py-8">No external API calls captured</div>
                     )}
                   </div>
+                )}
+
+                {activeTab === 'topology' && (
+                  <TopologyGraph />
                 )}
               </div>
 

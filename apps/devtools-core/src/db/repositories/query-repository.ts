@@ -243,6 +243,7 @@ export class QueryRepository {
   }
 
   async getTopology() {
+    // Nodes: unique services from traces, grouped by service name
     const nodesQuery = `
       SELECT root_service as id, root_service as label,
              COUNT(*) as request_count,
@@ -252,10 +253,73 @@ export class QueryRepository {
     `;
     const { rows: nodes } = await this.pool.query(nodesQuery);
 
+    // Derive edges from cross-service parent-child span relationships
     const edgesQuery = `
-      SELECT source_service as source, target_service as target,
-             request_count, error_count, avg_duration_ms
-      FROM service_dependencies
+      WITH span_parents AS (
+        SELECT s.id as span_id, s.service_name as child_service,
+               s.parent_span_id, s.trace_id,
+               s.attributes as child_attrs,
+               s.span_type as child_type,
+               s.duration_ms as child_duration,
+               s.status as child_status
+        FROM spans s
+        WHERE s.service_name IS NOT NULL
+      ),
+      parent_info AS (
+        SELECT sp.span_id, sp.child_service, sp.child_attrs, sp.child_type,
+               sp.child_duration, sp.child_status,
+               ps.service_name as parent_service
+        FROM span_parents sp
+        LEFT JOIN spans ps ON ps.id = sp.parent_span_id AND ps.trace_id = sp.trace_id
+      ),
+      -- Cross-service edges from parent-child relationships
+      service_edges AS (
+        SELECT parent_service as source, child_service as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'service' as edge_type
+        FROM parent_info
+        WHERE parent_service IS NOT NULL AND parent_service != child_service
+        GROUP BY parent_service, child_service
+      ),
+      -- DB edges: service -> postgres from db.system attribute
+      db_edges AS (
+        SELECT child_service as source, 'postgres' as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'database' as edge_type
+        FROM parent_info
+        WHERE child_attrs::text LIKE '%db.system%'
+          AND child_service != 'postgres'
+        GROUP BY child_service
+      ),
+      -- External HTTP edges: service -> external from http.request.method on client spans
+      http_edges AS (
+        SELECT child_service as source,
+               COALESCE(
+                 REGEXP_REPLACE(child_attrs::text, '.*http.url[^,]*?(http://[^/"\\]+)', '\\1', ''),
+                 'external'
+               ) as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'http' as edge_type
+        FROM parent_info
+        WHERE child_type = 'client'
+          AND child_attrs::text LIKE '%http.request.method%'
+          AND child_service != parent_service
+        GROUP BY child_service, REGEXP_REPLACE(child_attrs::text, '.*http.url[^,]*?(http://[^/"\\]+)', '\\1', '')
+      )
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM service_edges
+      UNION
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM db_edges
+      UNION
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM http_edges
     `;
     const { rows: edges } = await this.pool.query(edgesQuery);
 
