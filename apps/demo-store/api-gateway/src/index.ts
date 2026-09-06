@@ -1,5 +1,10 @@
+import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/telemetry/index';
 import express, { Request, Response } from 'express';
 import http from 'http';
+
+// Initialize telemetry BEFORE anything else
+initTracing('api-gateway');
+patchConsoleLogs('api-gateway');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -8,6 +13,7 @@ const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:3002';
 
 app.use(express.json());
+app.use(bodyCaptureMiddleware);
 
 // Enable CORS for demo frontend & amazon store
 app.use((req, res, next) => {

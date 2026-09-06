@@ -1,1 +1,3 @@
-export { initTracing, createLogger, patchConsoleLogs, bodyCaptureMiddleware } from '@devtools/services-shared';
+export { initTracing } from './src/tracing';
+export { createLogger, patchConsoleLogs } from './src/logger';
+export { bodyCaptureMiddleware } from './src/middleware/bodyCapture';

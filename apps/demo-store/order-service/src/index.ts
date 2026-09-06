@@ -1,6 +1,11 @@
+import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/telemetry/index';
 import express, { Request, Response } from 'express';
 import http from 'http';
 import { maybeInjectOrderDelay, maybeInjectCacheMiss, OrderItem } from './failures';
+
+// Initialize telemetry BEFORE anything else
+initTracing('order-service');
+patchConsoleLogs('order-service');
 
 const app = express();
 const port = process.env.PORT || 3002;
@@ -9,6 +14,7 @@ const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://app:secret@localhost:5432/ecommerce';
 
 app.use(express.json());
+app.use(bodyCaptureMiddleware);
 
 // In-memory fallback stores in case Postgres/Redis are in isolated mode
 const inMemoryOrders: any[] = [];
