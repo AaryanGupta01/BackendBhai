@@ -1,4 +1,4 @@
-# Backend DevTools — Repository Initialization
+# BackendBhai — Repository Initialization
 
 > **Date:** September 6, 2026
 > **Purpose:** Document the repository structure, workstream organization, and initialization decisions
@@ -7,7 +7,7 @@
 
 ## Why Five Workstreams?
 
-Backend DevTools is a hackathon project that requires parallel development across multiple technology domains:
+BackendBhai is a hackathon project that requires parallel development across multiple technology domains:
 
 1. **Telemetry/Instrumentation** — OpenTelemetry, OTel Collector, trace propagation
 2. **Core Platform** — Fastify server, PostgreSQL, REST APIs, WebSocket

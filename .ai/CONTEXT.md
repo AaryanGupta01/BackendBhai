@@ -10,7 +10,7 @@
 
 ### Project Overview
 
-Backend DevTools is "Chrome DevTools for backend systems" — a browser-based developer tool that presents one backend request as a complete interactive execution story.
+BackendBhai is "Chrome DevTools for backend systems" — a browser-based developer tool that presents one backend request as a complete interactive execution story.
 
 ### Architecture
 
