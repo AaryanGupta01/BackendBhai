@@ -5,16 +5,15 @@ import {
   Database, Shield, CreditCard, Box, Globe, Play,
   ChevronDown, Settings
 } from 'lucide-react';
+import { useRequests, type LiveRequest } from '@/hooks/useRequests';
+import { useTraceDetail, type TraceDetail } from '@/hooks/useTraceDetail';
+import { TopologyGraph } from '@/components/TopologyGraph';
+import { SVC } from '@/lib/serviceColors';
 
-// --- MOCK API DATA ---
-const MOCK_APIS = [
-  { id: '1', method: 'POST', path: '/api/checkout', status: 503, duration: '4,760ms', type: 'error', errorMsg: 'Upstream connection timeout: mock-payment-api failed to respond.', stack: 'Error: 503 Gateway Timeout\n    at PaymentService.charge (/src/payment/service.ts:42:11)\n    at OrderController.create (/src/orders/controller.ts:18:23)' },
-  { id: '2', method: 'GET', path: '/api/users/profile', status: 200, duration: '112ms', type: 'success' },
-  { id: '3', method: 'POST', path: '/api/auth/login', status: 200, duration: '240ms', type: 'success' },
-  { id: '4', method: 'GET', path: '/api/cart/items', status: 200, duration: '45ms', type: 'success' },
-  { id: '5', method: 'PUT', path: '/api/orders/update', status: 500, duration: '1,205ms', type: 'error', errorMsg: 'Transaction deadlock detected.', stack: 'Error: Deadlock found when trying to get lock\n    at Postgres.query (/src/db/pg.ts:99:5)' },
-  { id: '6', method: 'GET', path: '/api/products', status: 200, duration: '88ms', type: 'success' },
-];
+function getServiceColor(svc: string | undefined | null): string {
+  if (!svc) return '#6b7280';
+  return SVC[svc] || '#6b7280';
+}
 
 // --- GRAPH DATA ---
 const GRAPH_NODES = [
@@ -27,14 +26,21 @@ const GRAPH_NODES = [
   { id: 'payment', label: 'mock-payment', type: 'External', x: 950, y: 600, icon: CreditCard, status: 'error', detail: '503 Timeout' },
 ];
 
-const GRAPH_EDGES = [
-  { id: 'e1', source: 'client', target: 'gateway', status: 'ok' },
-  { id: 'e2', source: 'gateway', target: 'auth', status: 'ok' },
-  { id: 'e3', source: 'gateway', target: 'order', status: 'ok' },
-  { id: 'e4', source: 'order', target: 'redis', status: 'ok' },
-  { id: 'e5', source: 'order', target: 'postgres', status: 'ok' },
-  { id: 'e6', source: 'order', target: 'payment', status: 'error' },
-];
+function getMethodColor(m: string | undefined | null): string {
+  switch (m) {
+    case 'POST': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    case 'GET': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'PUT': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'DELETE': return 'bg-red-100 text-red-700 border-red-200';
+    default: return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+}
+
+function safeJson(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value, null, 2);
+}
 
 export default function App() {
   const [selectedApiId, setSelectedApiId] = useState<string | null>(null);
@@ -43,7 +49,8 @@ export default function App() {
   const [isReplaying, setIsReplaying] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  const selectedApi = MOCK_APIS.find(api => api.id === selectedApiId);
+  const { requests, count, loading, error: apiError } = useRequests(5000);
+  const { detail, loading: detailLoading } = useTraceDetail(selectedApiId);
 
   const filteredApis = useMemo(() => {
     return MOCK_APIS.filter(api => 

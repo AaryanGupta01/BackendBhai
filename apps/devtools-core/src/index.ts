@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { runMigrations } from './db/migrate.js';
 import { pool } from './db/connection.js';
+import { initRepository } from './db/repositories/query-repository.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -14,6 +15,14 @@ const __dirname = path.dirname(__filename);
 
 export async function buildServer() {
   await fastify.register(cors, { origin: '*' });
+
+  // Handle OTLP protobuf content type from OTel Collector
+  fastify.addContentTypeParser('application/x-protobuf', { parseAs: 'buffer' }, (req, body, done) => {
+    done(null, body);
+  });
+  fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    done(null, body);
+  });
 
   fastify.get('/health', async (request, reply) => {
     try {
@@ -44,6 +53,7 @@ const start = async () => {
   try {
     const server = await buildServer();
     await runMigrations();
+    initRepository(pool);
     await server.listen({ port: 4001, host: '0.0.0.0' });
     console.log('Server listening on http://localhost:4001');
   } catch (err) {

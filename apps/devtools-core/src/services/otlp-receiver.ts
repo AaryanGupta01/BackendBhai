@@ -4,6 +4,13 @@ import { wsHandler } from '../ws/handler.js';
 
 const repo = new TraceRepository();
 
+// OTLP JSON encodes traceId/spanId as base64. Convert to hex for DB storage.
+function toHex(input: string | Buffer): string {
+  if (!input) return '';
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input, 'base64');
+  return buf.toString('hex');
+}
+
 export class OtlpReceiver {
   async processOtlpTraces(payload: any) {
     if (!payload?.resourceSpans) return;
@@ -22,9 +29,9 @@ export class OtlpReceiver {
 
       for (const ss of rs.scopeSpans || []) {
         for (const s of ss.spans || []) {
-          const traceId = s.traceId;
-          const spanId = s.spanId;
-          const parentSpanId = s.parentSpanId || null;
+          const traceId = toHex(s.traceId);
+          const spanId = toHex(s.spanId);
+          const parentSpanId = s.parentSpanId ? toHex(s.parentSpanId) : null;
           
           const startTimeMs = Math.floor(parseInt(s.startTimeUnixNano || '0', 10) / 1000000);
           const endTimeMs = Math.floor(parseInt(s.endTimeUnixNano || '0', 10) / 1000000);
@@ -42,9 +49,12 @@ export class OtlpReceiver {
           else if (s.kind === 5) spanType = 'consumer';
 
           const status = s.status?.code === 2 ? 'error' : 'ok';
-          const statusCode = attributes['http.response.status_code'] ? parseInt(attributes['http.response.status_code'], 10) : null;
+          // Support both new (http.request.method) and old (http.method) semconv
+          const statusCode = attributes['http.response.status_code']
+            ? parseInt(attributes['http.response.status_code'], 10)
+            : (attributes['http.status_code'] ? parseInt(attributes['http.status_code'], 10) : null);
           const method = attributes['http.request.method'] || attributes['http.method'];
-          const path = attributes['url.path'] || attributes['http.target'];
+          const path = attributes['url.path'] || attributes['http.target'] || attributes['http.route'];
 
           const redactedAttrs = redactSpanAttributes(attributes);
 
@@ -106,8 +116,10 @@ export class OtlpReceiver {
              }
           }
 
-          if (spanType === 'client' && attributes['server.address']) {
-            const targetService = attributes['server.address'];
+          if (spanType === 'client' && (attributes['server.address'] || attributes['net.peer.name'])) {
+            // Prefer bare service names (net.peer.name = 'auth-service') over host:port
+            // ('auth-service:3001') so targets always match entries in the services table.
+            const targetService = attributes['server.address'] || attributes['net.peer.name'];
             const depKey = `${serviceName}->${targetService}`;
             if (!dependencies.has(depKey)) {
                dependencies.set(depKey, { source: serviceName, target: targetService, type: 'http' });
@@ -141,6 +153,13 @@ export class OtlpReceiver {
       services: Array.from(t.services)
     }));
 
+    // Register ALL services (including dependency targets) BEFORE inserting traces/spans,
+    // otherwise service_dependencies FK constraints can fail and drop the whole batch.
+    for (const dep of dependencies.values()) {
+      serviceNames.add(dep.target);
+    }
+    await repo.upsertServices(Array.from(serviceNames));
+
     for (const trace of tracesToInsert) {
        await repo.insertTrace(trace);
        wsHandler.broadcastNewRequest(trace);
@@ -148,7 +167,6 @@ export class OtlpReceiver {
     
     await repo.insertSpans(allSpans);
     await repo.insertLogEvents(allLogs);
-    await repo.upsertServices(Array.from(serviceNames));
     await repo.upsertDependencies(Array.from(dependencies.values()));
   }
 }

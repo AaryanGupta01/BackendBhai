@@ -1,5 +1,10 @@
+import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/telemetry/index';
 import express, { Request, Response } from 'express';
 import http from 'http';
+
+// Initialize telemetry BEFORE anything else
+initTracing('payment-service');
+patchConsoleLogs('payment-service');
 
 const app = express();
 const port = process.env.PORT || 3003;
@@ -7,6 +12,7 @@ const port = process.env.PORT || 3003;
 const MOCK_PAYMENT_URL = process.env.MOCK_PAYMENT_URL || 'http://localhost:4000';
 
 app.use(express.json());
+app.use(bodyCaptureMiddleware);
 
 function callMockPayment(amount: number, headers: Record<string, string>): Promise<{ statusCode: number; data: any }> {
   return new Promise((resolve, reject) => {

@@ -1,7 +1,7 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter as OTLPHttpTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { resourceFromAttributes } from '@opentelemetry/resources';
+import { Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 let sdkInstance: NodeSDK | null = null;
@@ -33,7 +33,7 @@ export function initTracing(defaultServiceName: string = 'unknown-service'): Nod
     traceExporter = new OTLPHttpTraceExporter({ url: otlpEndpoint });
   }
 
-  const resource = resourceFromAttributes({
+  const resource = new Resource({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: '1.0.0',
     'deployment.environment': 'hackathon-demo',

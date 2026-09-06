@@ -65,8 +65,22 @@ function checkGatewayOnline() {
   });
 }
 
+// Direct-DB seeding is disabled by default: it writes rows straight into the
+// devtools database without touching auth/order/payment services, so those
+// orders produce ZERO spans, logs, and traces — leaving catalog/order data
+// with no matching telemetry in DevTools. Pass --skip-telemetry to force it
+// (only useful for testing the DevTools UI with synthetic rows).
 async function seedDirectDb() {
-  console.log('[Seed] API Gateway is not responding. Falling back to direct database seed...');
+  console.log('\n[Seed] API Gateway is not responding.');
+  if (!process.argv.includes('--skip-telemetry')) {
+    console.log('[Seed] Refusing to seed directly into the database (would create rows with NO telemetry).');
+    console.log('[Seed] Start the stack first:  docker compose up -d  then re-run this script.');
+    console.log('[Seed] If you really want raw synthetic DB rows with no traces, pass --skip-telemetry.');
+    process.exitCode = 1;
+    return;
+  }
+  console.log('[Seed] WARNING: --skip-telemetry given — seeding DB directly. These rows will NOT appear in DevTools traces!');
+
   let pg;
   try {
     pg = require('pg');
@@ -77,7 +91,7 @@ async function seedDirectDb() {
 
   const client = new pg.Client({
     host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
+    port: process.env.DB_PORT || 5433,
     user: process.env.POSTGRES_USER || 'app',
     password: process.env.POSTGRES_PASSWORD || 'secret',
     database: 'devtools'
@@ -88,56 +102,52 @@ async function seedDirectDb() {
     console.log('[Seed] Connected to devtools database. Inserting synthetic traces...');
 
     const baseTime = Date.now() - 3600000; // 1 hour ago
-    const traceRows = [];
 
-    // Generate 55 synthetic requests matching contracts/DATA_MODEL.md
+    // Generate 55 synthetic requests matching the real schema (migrations/001_initial.sql)
     for (let i = 1; i <= 55; i++) {
       const traceId = `5b8efff798038103d269b63381${i.toString().padStart(6, '0')}`;
       const rootSpanId = `eee19b7ec3${i.toString().padStart(6, '0')}`;
-      const timestamp = new Date(baseTime + i * 65000).toISOString();
-      
+      const timestampMs = baseTime + i * 65000;
+
       let statusCode = 201;
       let durationMs = 350 + Math.floor(Math.random() * 200);
       let hasError = false;
       let scenario = 'Normal Order';
 
       if (i % 8 === 0) {
-        // Slow DB delay (>10 items)
         durationMs = 3100 + Math.floor(Math.random() * 200);
         scenario = 'Heavy Order (>10 items, slow DB)';
       } else if (i % 7 === 0) {
-        // Auth timeout
         statusCode = 401;
         durationMs = 5020 + Math.floor(Math.random() * 50);
         hasError = true;
         scenario = 'Invalid Auth Timeout (5s)';
       } else if (i % 11 === 0) {
-        // WireMock 503
         statusCode = 503;
         durationMs = 420;
         hasError = true;
         scenario = 'Payment Provider 503 Failure';
       } else if (i % 5 === 0) {
-        // WireMock slow delay
         durationMs = 5120 + Math.floor(Math.random() * 100);
         scenario = 'Slow Payment Provider (5s)';
       }
 
       await client.query(`
         INSERT INTO traces (
-          trace_id, root_service, method, path, status_code, duration_ms,
-          timestamp, has_error, request_body, response_body, services
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT (trace_id) DO UPDATE SET duration_ms = EXCLUDED.duration_ms
+          id, name, root_service, start_time, end_time, status,
+          method, path, status_code, request_body, response_body, services
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (id) DO UPDATE SET end_time = EXCLUDED.end_time
       `, [
         traceId,
+        'POST /api/orders',
         'api-gateway',
+        timestampMs,
+        timestampMs + durationMs,
+        hasError ? 'error' : 'ok',
         'POST',
         '/api/orders',
         statusCode,
-        durationMs,
-        timestamp,
-        hasError,
         JSON.stringify({ userId: 'user-42', scenario }),
         JSON.stringify({ orderId: `ord-seed-${i}`, status: statusCode === 201 ? 'created' : 'failed' }),
         ['api-gateway', 'auth-service', 'order-service', 'payment-service']
@@ -146,26 +156,25 @@ async function seedDirectDb() {
       // Insert root span
       await client.query(`
         INSERT INTO spans (
-          span_id, trace_id, parent_span_id, service, operation, kind,
-          start_timestamp, duration_ms, status, status_code
-        ) VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (span_id) DO NOTHING
+          id, trace_id, parent_span_id, service_name, operation_name, span_type,
+          start_time, end_time, status
+        ) VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (id) DO NOTHING
       `, [
         rootSpanId,
         traceId,
         'api-gateway',
         'POST /api/orders',
         'server',
-        timestamp,
-        durationMs,
-        hasError ? 'ERROR' : 'OK',
-        statusCode
+        timestampMs,
+        timestampMs + durationMs,
+        hasError ? 'error' : 'ok'
       ]);
 
       // Insert correlated log event
       await client.query(`
         INSERT INTO log_events (
-          trace_id, span_id, service, level, message, timestamp
+          trace_id, span_id, service_name, level, message, timestamp
         ) VALUES ($1, $2, $3, $4, $5, $6)
       `, [
         traceId,
@@ -173,11 +182,11 @@ async function seedDirectDb() {
         'api-gateway',
         hasError ? 'error' : 'info',
         `Processed /api/orders: ${scenario} in ${durationMs}ms (Status ${statusCode})`,
-        timestamp
+        timestampMs
       ]);
     }
 
-    console.log('[Seed] Successfully seeded 55 synthetic requests directly into devtools DB.');
+    console.log('[Seed] Seeded 55 synthetic requests directly into devtools DB (no telemetry path).');
     await client.end();
   } catch (dbErr) {
     console.warn('[Seed] Direct DB seed encountered:', dbErr.message);

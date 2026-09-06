@@ -1,167 +1,103 @@
-import { pool } from '../connection.js';
+import { Pool } from 'pg';
 
 export class QueryRepository {
+  private pool: Pool;
+  // Traces are immutable once ingested — cache assembled waterfalls per trace_id.
+  // Bounded to prevent unbounded memory growth in long-running sessions.
+  private waterfallCache = new Map<string, object>();
+  private static readonly WATERFALL_CACHE_MAX = 500;
+  private static instance: QueryRepository;
+
+  constructor(pool: Pool) {
+    this.pool = pool;
+  }
+
+  static getInstance(pool?: Pool): QueryRepository {
+    if (!QueryRepository.instance) {
+      if (!pool) throw new Error('Pool required for first initialization');
+      QueryRepository.instance = new QueryRepository(pool);
+    }
+    return QueryRepository.instance;
+  }
+
+  private parseJson(val: any): any {
+    if (!val) return null;
+    if (typeof val === 'object') return val;
+    try { return JSON.parse(val); } catch { return val; }
+  }
+
+  private toIsoString(val: any): string {
+    if (!val) return new Date().toISOString();
+    if (typeof val === 'string' && val.includes('T')) return val;
+    // If it's nanoseconds (number string), convert to ms then ISO
+    const n = typeof val === 'string' ? parseInt(val, 10) : val;
+    if (isNaN(n)) return new Date().toISOString();
+    // If > 1e12, it's likely nanoseconds
+    const ms = n > 1e12 ? Math.floor(n / 1e6) : n;
+    return new Date(ms).toISOString();
+  }
+
   async getRequestsSummary(params: any = {}) {
-    let {
-      page = 1,
-      limit = 50,
-      method,
-      status,
-      service,
-      search,
-      minDuration,
-      maxDuration,
-      sort = 'timestamp',
-      order = 'desc'
-    } = params;
-
-    page = Math.max(1, parseInt(page as any, 10) || 1);
-    limit = Math.min(100, Math.max(1, parseInt(limit as any, 10) || 50));
-    
-    const conditions = [];
-    const values: any[] = [];
-    let paramCount = 1;
-
-    if (method) {
-      conditions.push(`method = $${paramCount++}`);
-      values.push(method.toUpperCase());
-    }
-
-    if (status) {
-      const classMatch = status.match(/^([2345])xx$/i);
-      if (classMatch) {
-        const base = parseInt(classMatch[1], 10) * 100;
-        conditions.push(`status_code >= $${paramCount++} AND status_code < $${paramCount++}`);
-        values.push(base, base + 100);
-      } else {
-        const exactCode = parseInt(status, 10);
-        if (!isNaN(exactCode)) {
-           conditions.push(`status_code = $${paramCount++}`);
-           values.push(exactCode);
-        }
-      }
-    }
-
-    if (service) {
-      conditions.push(`$${paramCount++} = ANY(services)`);
-      values.push(service);
-    }
-
-    if (search) {
-      conditions.push(`path ILIKE $${paramCount++}`);
-      values.push(`%${search}%`);
-    }
-
-    if (minDuration) {
-      conditions.push(`duration_ms >= $${paramCount++}`);
-      values.push(parseInt(minDuration, 10));
-    }
-    if (maxDuration) {
-      conditions.push(`duration_ms <= $${paramCount++}`);
-      values.push(parseInt(maxDuration, 10));
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const allowedSorts: Record<string, string> = {
-      timestamp: 'start_time',
-      duration: 'duration_ms',
-      status: 'status_code'
-    };
-    const sortField = allowedSorts[sort] || 'start_time';
-    const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-
+    const { page = 1, limit = 50, method, status, search } = params;
     const offset = (page - 1) * limit;
+    
+    let where = '1=1';
+    const args: any[] = [];
+    let idx = 1;
 
-    const countQuery = `SELECT COUNT(*) FROM request_summary ${whereClause}`;
-    const dataQuery = `
-      SELECT trace_id, method, path, status_code, status, duration_ms, 
-             root_service, services, start_time, created_at, span_count, log_count, error_count
-      FROM request_summary
-      ${whereClause}
-      ORDER BY ${sortField} ${sortOrder}
-      LIMIT $${paramCount++} OFFSET $${paramCount++}
+    if (method) { where += ` AND t.method = $${idx++}`; args.push(method); }
+    if (status) { where += ` AND t.status_code = $${idx++}`; args.push(parseInt(status, 10)); }
+    if (search) { where += ` AND (t.path ILIKE $${idx} OR t.root_service ILIKE $${idx})`; args.push(`%${search}%`); idx++; }
+
+    const countQ = `SELECT COUNT(*) as total FROM traces t WHERE ${where}`;
+    const { rows: countRows } = await this.pool.query(countQ, args);
+    const total = parseInt(countRows[0].total, 10);
+
+    const dataQ = `
+      SELECT t.id as trace_id, t.method, t.path, t.status_code, t.duration_ms,
+             t.start_time as timestamp, t.root_service,
+             CASE WHEN t.status_code >= 400 THEN true ELSE false END as has_error,
+             (SELECT array_agg(DISTINCT s.service_name) FROM spans s WHERE s.trace_id = t.id) as services
+      FROM traces t
+      WHERE ${where}
+      ORDER BY t.start_time DESC
+      LIMIT $${idx++} OFFSET $${idx++}
     `;
-
-    const countValues = values.slice();
-    values.push(limit, offset);
-
-    const [countRes, dataRes] = await Promise.all([
-      pool.query(countQuery, countValues),
-      pool.query(dataQuery, values)
-    ]);
-
-    const total = parseInt(countRes.rows[0].count, 10);
-    const totalPages = Math.ceil(total / limit);
-
-    const data = dataRes.rows.map(row => {
-      let ts = row.start_time;
-      if (typeof ts === 'string' && /^\d+$/.test(ts)) {
-         ts = new Date(parseInt(ts, 10)).toISOString();
-      } else if (typeof ts === 'number') {
-         ts = new Date(ts).toISOString();
-      } else if (ts instanceof Date) {
-         ts = ts.toISOString();
-      } else {
-         try {
-           ts = new Date(ts).toISOString();
-         } catch(e) {
-           ts = new Date().toISOString();
-         }
-      }
-
-      return {
-        traceId: row.trace_id,
-        method: row.method,
-        path: row.path,
-        statusCode: row.status_code,
-        durationMs: row.duration_ms,
-        timestamp: ts,
-        services: row.services || [],
-        rootService: row.root_service,
-        hasError: row.status_code >= 400 || row.error_count > 0
-      };
-    });
+    args.push(limit, offset);
+    const { rows } = await this.pool.query(dataQ, args);
 
     return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages
-      }
+      data: rows.map(r => ({
+        traceId: r.trace_id,
+        method: r.method,
+        path: r.path,
+        statusCode: r.status_code,
+        durationMs: parseInt(r.duration_ms || '0', 10),
+        timestamp: this.toIsoString(r.timestamp),
+        services: r.services || [],
+        rootService: r.root_service,
+        hasError: r.has_error,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
     };
-  }
-
-  private parseJson(val: any) {
-    if (typeof val === 'string') {
-      try { return JSON.parse(val); } catch { return val; }
-    }
-    return val;
-  }
-
-  private toIsoString(val: any) {
-    if (typeof val === 'string' && /^\d+$/.test(val)) return new Date(parseInt(val, 10)).toISOString();
-    if (typeof val === 'number') return new Date(val).toISOString();
-    if (val instanceof Date) return val.toISOString();
-    return new Date(val).toISOString();
   }
 
   async getTraceById(traceId: string) {
     const traceQuery = `SELECT * FROM traces WHERE id = $1`;
-    const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
+    const { rows: traceRows } = await this.pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
     const trace = traceRows[0];
 
     const spanQuery = `SELECT * FROM spans WHERE trace_id = $1 ORDER BY start_time ASC`;
-    const { rows: spanRows } = await pool.query(spanQuery, [traceId]);
+    const { rows: spanRows } = await this.pool.query(spanQuery, [traceId]);
 
     const logsQuery = `SELECT * FROM log_events WHERE trace_id = $1 ORDER BY timestamp ASC`;
-    const { rows: logRows } = await pool.query(logsQuery, [traceId]);
+    const { rows: logRows } = await this.pool.query(logsQuery, [traceId]);
 
     const mappedSpans = spanRows.map(span => {
       const attrs = this.parseJson(span.attributes) || {};
+      // Support both new (http.response.status_code) and old (http.status_code) semconv
+      const rawStatusCode = attrs['http.response.status_code'] ?? attrs['http.status_code'];
       return {
         spanId: span.id,
         parentSpanId: span.parent_span_id,
@@ -171,30 +107,33 @@ export class QueryRepository {
         startTimestamp: this.toIsoString(span.start_time),
         durationMs: parseInt(span.duration_ms || '0', 10),
         status: span.status === 'error' ? 'ERROR' : 'OK',
-        statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
+        statusCode: rawStatusCode != null ? parseInt(rawStatusCode, 10) : undefined,
         attributes: attrs
       };
     });
 
+    // Extract unique services from spans
+    const services = [...new Set(mappedSpans.map(s => s.service).filter(Boolean))];
+
     const dbQueries = mappedSpans
-      .filter(s => s.attributes['db.system'])
+      .filter(s => s.attributes['db.system'] && (s.attributes['db.statement'] || s.attributes['db.operation']))
       .map(s => ({
         spanId: s.spanId,
         service: s.service,
-        operation: s.attributes['db.operation.name'] || 'DB',
-        table: s.attributes['db.sql.table'] || '',
+        operation: s.attributes['db.operation'] || s.attributes['db.operation.name'] || (s.attributes['db.statement'] || '').split(' ')[0] || 'DB',
+        table: s.attributes['db.sql.table'] || s.attributes['db.name'] || '',
         statement: s.attributes['db.statement'] || '',
         durationMs: s.durationMs,
         status: s.status
       }));
 
     const externalCalls = mappedSpans
-      .filter(s => s.kind === 'client' && s.attributes['http.request.method'])
+      .filter(s => s.kind === 'client' && (s.attributes['http.request.method'] || s.attributes['http.method']) && s.attributes['http.url'])
       .map(s => ({
         spanId: s.spanId,
         service: s.service,
-        method: s.attributes['http.request.method'],
-        url: s.attributes['url.full'] || '',
+        method: s.attributes['http.request.method'] || s.attributes['http.method'],
+        url: s.attributes['url.full'] || s.attributes['http.url'] || '',
         statusCode: s.statusCode,
         durationMs: s.durationMs,
         status: s.status
@@ -222,6 +161,7 @@ export class QueryRepository {
       responseBody: this.parseJson(trace.response_body),
       requestHeaders: this.parseJson(trace.request_headers),
       responseHeaders: this.parseJson(trace.response_headers),
+      services,
       spans: mappedSpans,
       logs: mappedLogs,
       dbQueries,
@@ -230,8 +170,13 @@ export class QueryRepository {
   }
 
   async getTraceWaterfall(traceId: string) {
+    // Waterfall assembly is recursive and traces are immutable once ingested,
+    // so cache the assembled result per trace_id.
+    const cached = this.waterfallCache.get(traceId);
+    if (cached) return cached;
+
     const traceQuery = `SELECT start_time, duration_ms FROM traces WHERE id = $1`;
-    const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
+    const { rows: traceRows } = await this.pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
 
     const trace = traceRows[0];
@@ -239,7 +184,7 @@ export class QueryRepository {
     const traceDuration = parseInt(trace.duration_ms || '0', 10);
 
     const spanQuery = `SELECT * FROM spans WHERE trace_id = $1 ORDER BY start_time ASC`;
-    const { rows: spanRows } = await pool.query(spanQuery, [traceId]);
+    const { rows: spanRows } = await this.pool.query(spanQuery, [traceId]);
 
     const idToNode = new Map<string, any>();
     spanRows.forEach(s => {
@@ -248,62 +193,61 @@ export class QueryRepository {
 
     const rootNodes: any[] = [];
     spanRows.forEach(s => {
+      const node = idToNode.get(s.id);
       if (s.parent_span_id && idToNode.has(s.parent_span_id)) {
-        idToNode.get(s.parent_span_id).children.push(idToNode.get(s.id));
+        idToNode.get(s.parent_span_id).children.push(node);
       } else {
-        rootNodes.push(idToNode.get(s.id));
+        rootNodes.push(node);
       }
     });
 
-    const orderedSpans: any[] = [];
-    let currentOrder = 0;
-
-    function traverse(node: any, depth: number) {
-      node.computedDepth = depth;
-      node.computedOrder = currentOrder++;
-      orderedSpans.push(node);
-      node.children.forEach((c: any) => traverse(c, depth + 1));
+    // Compute depth and build flat list
+    const flatList: any[] = [];
+    let order = 0;
+    const self = this;
+    function traverse(nodes: any[], depth: number) {
+      nodes.forEach(n => {
+        const attrs = idToNode.get(n.id) ? self.parseJson(n.attributes) || {} : {};
+        flatList.push({
+          spanId: n.id,
+          parentSpanId: n.parent_span_id,
+          service: n.service_name,
+          operation: n.operation_name,
+          kind: n.span_type,
+          startOffsetMs: traceStart > 0 ? Math.max(0, Math.floor((parseInt(n.start_time, 10) - traceStart) / 1e6)) : 0,
+          durationMs: parseInt(n.duration_ms || '0', 10),
+          percentageOfTotal: traceDuration > 0 ? Math.min(100, Math.round((parseInt(n.duration_ms || '0', 10) / traceDuration) * 100)) : 0,
+          depth,
+          order: order++,
+          status: n.status === 'error' ? 'ERROR' : 'OK',
+          statusCode: attrs['http.response.status_code']
+            ? parseInt(attrs['http.response.status_code'], 10)
+            : (attrs['http.status_code'] ? parseInt(attrs['http.status_code'], 10) : undefined),
+          attributes: attrs
+        });
+        if (n.children?.length) traverse(n.children, depth + 1);
+      });
     }
+    traverse(rootNodes, 0);
 
-    rootNodes.forEach(r => traverse(r, 0));
-
-    const waterfallSpans = orderedSpans.map(s => {
-      const startOffsetMs = parseInt(s.start_time, 10) - traceStart;
-      const dur = parseInt(s.duration_ms || '0', 10);
-      const attrs = this.parseJson(s.attributes) || {};
-      
-      return {
-        spanId: s.id,
-        parentSpanId: s.parent_span_id,
-        service: s.service_name,
-        operation: s.operation_name,
-        kind: s.span_type,
-        startOffsetMs: Math.max(0, startOffsetMs),
-        durationMs: dur,
-        percentageOfTotal: traceDuration > 0 ? Number(((dur / traceDuration) * 100).toFixed(2)) : 0,
-        depth: s.computedDepth,
-        order: s.computedOrder,
-        status: s.status === 'error' ? 'ERROR' : 'OK',
-        statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
-        attributes: attrs
-      };
-    });
-
-    return {
+    const result = {
       traceId,
       totalDurationMs: traceDuration,
-      startTimestamp: this.toIsoString(traceStart),
-      spans: waterfallSpans
+      startTimestamp: this.toIsoString(trace.start_time),
+      spans: flatList
     };
+    if (this.waterfallCache.size >= QueryRepository.WATERFALL_CACHE_MAX) {
+      // Evict oldest entry (Map preserves insertion order)
+      const oldest = this.waterfallCache.keys().next().value;
+      if (oldest !== undefined) this.waterfallCache.delete(oldest);
+    }
+    this.waterfallCache.set(traceId, result);
+    return result;
   }
 
   async getLogsByTraceId(traceId: string) {
-    const query = `
-      SELECT * FROM log_events 
-      WHERE trace_id = $1 
-      ORDER BY timestamp ASC
-    `;
-    const { rows } = await pool.query(query, [traceId]);
+    const query = `SELECT * FROM log_events WHERE trace_id = $1 ORDER BY timestamp ASC`;
+    const { rows } = await this.pool.query(query, [traceId]);
     return {
       traceId,
       logs: rows.map(l => ({
@@ -319,20 +263,100 @@ export class QueryRepository {
   }
 
   async getTopology() {
-    const nodesQuery = `SELECT name as id, name as label, request_count, error_count, avg_duration_ms FROM services`;
-    const edgesQuery = `
-      SELECT source_service as source, target_service as target, request_count, error_count, avg_duration_ms 
-      FROM service_dependencies
+    // Nodes: unique services from traces, grouped by service name
+    const nodesQuery = `
+      SELECT root_service as id, root_service as label,
+             COUNT(*) as request_count,
+             SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as error_count,
+             AVG(duration_ms) as avg_duration_ms
+      FROM traces GROUP BY root_service
     `;
-    
-    const [nodesRes, edgesRes] = await Promise.all([
-      pool.query(nodesQuery),
-      pool.query(edgesQuery)
-    ]);
-    
-    return {
-      nodes: nodesRes.rows,
-      edges: edgesRes.rows
-    };
+    const { rows: nodes } = await this.pool.query(nodesQuery);
+
+    // Derive edges from cross-service parent-child span relationships
+    const edgesQuery = `
+      WITH span_parents AS (
+        SELECT s.id as span_id, s.service_name as child_service,
+               s.parent_span_id, s.trace_id,
+               s.attributes as child_attrs,
+               s.span_type as child_type,
+               s.duration_ms as child_duration,
+               s.status as child_status
+        FROM spans s
+        WHERE s.service_name IS NOT NULL
+      ),
+      parent_info AS (
+        SELECT sp.span_id, sp.child_service, sp.child_attrs, sp.child_type,
+               sp.child_duration, sp.child_status,
+               ps.service_name as parent_service
+        FROM span_parents sp
+        LEFT JOIN spans ps ON ps.id = sp.parent_span_id AND ps.trace_id = sp.trace_id
+      ),
+      -- Cross-service edges from parent-child relationships
+      service_edges AS (
+        SELECT parent_service as source, child_service as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'service' as edge_type
+        FROM parent_info
+        WHERE parent_service IS NOT NULL AND parent_service != child_service
+        GROUP BY parent_service, child_service
+      ),
+      -- DB edges: service -> postgres from db.system attribute
+      db_edges AS (
+        SELECT child_service as source, 'postgres' as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'database' as edge_type
+        FROM parent_info
+        WHERE child_attrs::text LIKE '%db.system%'
+          AND child_service != 'postgres'
+        GROUP BY child_service
+      ),
+      -- External HTTP edges: service -> external from http.request.method on client spans
+      http_edges AS (
+        SELECT child_service as source,
+               COALESCE(
+                 REGEXP_REPLACE(child_attrs::text, '.*http.url[^,]*?(http://[^/"\\]+)', '\\1', ''),
+                 'external'
+               ) as target,
+               COUNT(*) as request_count,
+               SUM(CASE WHEN child_status = 'error' THEN 1 ELSE 0 END) as error_count,
+               AVG(child_duration) as avg_duration_ms,
+               'http' as edge_type
+        FROM parent_info
+        WHERE child_type = 'client'
+          AND child_attrs::text LIKE '%http.request.method%'
+          AND child_service != parent_service
+        GROUP BY child_service, REGEXP_REPLACE(child_attrs::text, '.*http.url[^,]*?(http://[^/"\\]+)', '\\1', '')
+      )
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM service_edges
+      UNION
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM db_edges
+      UNION
+      SELECT source, target, request_count, error_count, avg_duration_ms, edge_type
+      FROM http_edges
+    `;
+    const { rows: edges } = await this.pool.query(edgesQuery);
+
+    return { data: { nodes, edges } };
   }
+}
+
+// Lazy init singleton
+let pool: Pool | null = null;
+let repo: QueryRepository | null = null;
+
+export function initRepository(p: Pool) {
+  pool = p;
+  repo = QueryRepository.getInstance(p);
+}
+
+export function getRepository(): QueryRepository {
+  if (!repo) throw new Error('Repository not initialized');
+  return repo;
 }
