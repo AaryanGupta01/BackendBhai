@@ -9,18 +9,20 @@ import { useRequests, type LiveRequest } from '@/hooks/useRequests';
 import { useTraceDetail, type TraceDetail } from '@/hooks/useTraceDetail';
 import { SVC } from '@/data/mock';
 
-function getServiceColor(svc: string): string {
+function getServiceColor(svc: string | undefined | null): string {
+  if (!svc) return '#6b7280';
   return SVC[svc] || '#6b7280';
 }
 
-function getStatusColor(s: number): string {
-  if (s >= 500) return 'text-red-600';
-  if (s >= 400) return 'text-orange-500';
-  if (s >= 200 && s < 300) return 'text-emerald-600';
+function getStatusColor(s: number | null | undefined): string {
+  const code = s || 0;
+  if (code >= 500) return 'text-red-600';
+  if (code >= 400) return 'text-orange-500';
+  if (code >= 200 && code < 300) return 'text-emerald-600';
   return 'text-slate-500';
 }
 
-function getMethodColor(m: string): string {
+function getMethodColor(m: string | undefined | null): string {
   switch (m) {
     case 'POST': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
     case 'GET': return 'bg-blue-100 text-blue-700 border-blue-200';
@@ -28,6 +30,12 @@ function getMethodColor(m: string): string {
     case 'DELETE': return 'bg-red-100 text-red-700 border-red-200';
     default: return 'bg-slate-100 text-slate-700 border-slate-200';
   }
+}
+
+function safeJson(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value, null, 2);
 }
 
 export default function App() {
@@ -52,6 +60,17 @@ export default function App() {
   };
 
   const selectedApi = requests.find(r => r.id === selectedApiId);
+
+  // Safe detail properties with fallbacks
+  const detailMethod = detail?.method || selectedApi?.m || 'GET';
+  const detailPath = detail?.path || selectedApi?.p || '/';
+  const detailStatus = detail?.statusCode || selectedApi?.s || 200;
+  const detailDuration = detail?.durationMs || selectedApi?.d || 0;
+  const detailServices = detail?.services || selectedApi?.svcs || [];
+  const detailSpans = detail?.spans || [];
+  const detailLogs = detail?.logs || [];
+  const detailDbQueries = detail?.dbQueries || [];
+  const detailExternalCalls = detail?.externalCalls || [];
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
@@ -136,7 +155,7 @@ export default function App() {
                     <span className="text-[10px] text-slate-400">{api.d}ms</span>
                   </div>
                   <div className="flex gap-1 mt-1.5 flex-wrap">
-                    {api.svcs.map(svc => (
+                    {(api.svcs || []).map(svc => (
                       <span key={svc} className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getServiceColor(svc) }} />
                         {svc}
@@ -168,18 +187,18 @@ export default function App() {
               {/* Request Header */}
               <div className="px-6 py-4 bg-white border-b border-slate-200 shrink-0">
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded text-xs font-bold border ${getMethodColor(detail.method ?? selectedApi.m)}`}>
-                    {detail.method ?? selectedApi.m}
+                  <span className={`px-3 py-1 rounded text-xs font-bold border ${getMethodColor(detailMethod)}`}>
+                    {detailMethod}
                   </span>
-                  <span className="text-lg font-mono font-semibold text-slate-800">{detail.path || selectedApi.p}</span>
-                  <span className={`text-sm font-bold ${getStatusColor(detail.statusCode ?? selectedApi.s)}`}>
-                    {detail.statusCode ?? selectedApi.s}
+                  <span className="text-lg font-mono font-semibold text-slate-800">{detailPath}</span>
+                  <span className={`text-sm font-bold ${getStatusColor(detailStatus)}`}>
+                    {detailStatus}
                   </span>
-                  <span className="text-xs text-slate-400 ml-auto font-mono">{detail.durationMs || selectedApi.d}ms</span>
+                  <span className="text-xs text-slate-400 ml-auto font-mono">{detailDuration}ms</span>
                 </div>
-                <div className="flex gap-1 mt-2">
-                  {(detail.services || selectedApi.svcs).map(svc => (
-                    <span key={svc} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {(Array.isArray(detailServices) ? detailServices : []).map((svc, i) => (
+                    <span key={`${svc}-${i}`} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getServiceColor(svc) }} />
                       {svc}
                     </span>
@@ -206,19 +225,19 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-6">
                 {activeTab === 'waterfall' && (
                   <div className="space-y-1">
-                    {detail.spans && detail.spans.length > 0 ? (
-                      detail.spans.map((span, i) => (
+                    {detailSpans.length > 0 ? (
+                      detailSpans.map((span: any, i: number) => (
                         <div key={span.spanId || i}
                           className="flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-50 group"
-                          style={{ paddingLeft: `${(span.depth || 0) * 24 + 12}px` }}>
+                          style={{ paddingLeft: `${((span.depth || 0) * 24) + 12}px` }}>
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getServiceColor(span.service) }} />
-                          <span className="text-xs font-mono text-slate-500 w-12 shrink-0">{span.kind}</span>
-                          <span className="text-sm font-medium text-slate-700 flex-1 truncate">{span.operation}</span>
-                          <span className="text-xs text-slate-400 font-mono shrink-0">{span.service}</span>
-                          <span className="text-xs text-slate-500 font-mono w-16 text-right shrink-0">{span.durationMs}ms</span>
+                          <span className="text-xs font-mono text-slate-500 w-12 shrink-0">{span.kind || 'span'}</span>
+                          <span className="text-sm font-medium text-slate-700 flex-1 truncate">{span.operation || 'unknown'}</span>
+                          <span className="text-xs text-slate-400 font-mono shrink-0">{span.service || 'unknown'}</span>
+                          <span className="text-xs text-slate-500 font-mono w-16 text-right shrink-0">{span.durationMs || 0}ms</span>
                           <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
                             <div className="h-full rounded-full" style={{
-                              width: `${Math.max((span.percentageOfTotal || 0), 2)}%`,
+                              width: `${Math.max(span.percentageOfTotal || 0, 2)}%`,
                               backgroundColor: getServiceColor(span.service)
                             }} />
                           </div>
@@ -232,10 +251,10 @@ export default function App() {
 
                 {activeTab === 'logs' && (
                   <div className="space-y-2">
-                    {detail.logs && detail.logs.length > 0 ? (
-                      detail.logs.map((log, i) => (
+                    {detailLogs.length > 0 ? (
+                      detailLogs.map((log: any, i: number) => (
                         <div key={i} className="font-mono text-xs bg-slate-900 text-green-400 p-3 rounded overflow-x-auto">
-                          <span className="text-slate-500">[{log.level}]</span> {log.message}
+                          <span className="text-slate-500">[{log.level || 'info'}]</span> {log.message || JSON.stringify(log)}
                         </div>
                       ))
                     ) : (
@@ -246,12 +265,12 @@ export default function App() {
 
                 {activeTab === 'db' && (
                   <div className="space-y-2">
-                    {detail.dbQueries && detail.dbQueries.length > 0 ? (
-                      detail.dbQueries.map((q, i) => (
+                    {detailDbQueries.length > 0 ? (
+                      detailDbQueries.map((q: any, i: number) => (
                         <div key={i} className="bg-white border border-slate-200 rounded-lg p-4">
-                          <div className="text-xs font-mono text-slate-500 mb-2">{q.service}</div>
-                          <div className="text-sm font-mono bg-slate-50 p-2 rounded text-slate-700">{q.query}</div>
-                          <div className="text-xs text-slate-400 mt-2">{q.durationMs}ms</div>
+                          <div className="text-xs font-mono text-slate-500 mb-2">{q.service || 'postgres'}</div>
+                          <div className="text-sm font-mono bg-slate-50 p-2 rounded text-slate-700">{q.query || q.statement || 'N/A'}</div>
+                          <div className="text-xs text-slate-400 mt-2">{q.durationMs || 0}ms</div>
                         </div>
                       ))
                     ) : (
@@ -262,14 +281,14 @@ export default function App() {
 
                 {activeTab === 'ext' && (
                   <div className="space-y-2">
-                    {detail.externalCalls && detail.externalCalls.length > 0 ? (
-                      detail.externalCalls.map((call, i) => (
+                    {detailExternalCalls.length > 0 ? (
+                      detailExternalCalls.map((call: any, i: number) => (
                         <div key={i} className="bg-white border border-slate-200 rounded-lg p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Globe className="w-4 h-4 text-blue-500" />
-                            <span className="text-sm font-medium">{call.method} {call.url}</span>
+                            <span className="text-sm font-medium">{call.method || 'GET'} {call.url || call.target || 'unknown'}</span>
                           </div>
-                          <div className="text-xs text-slate-400">{call.durationMs}ms — {call.statusCode}</div>
+                          <div className="text-xs text-slate-400">{call.durationMs || 0}ms — {call.statusCode || call.status || 'N/A'}</div>
                         </div>
                       ))
                     ) : (
@@ -286,13 +305,13 @@ export default function App() {
                     {detail.requestBody && (
                       <div className="mb-3">
                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Request Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{typeof detail.requestBody === 'string' ? detail.requestBody : JSON.stringify(detail.requestBody, null, 2)}</pre>
+                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{safeJson(detail.requestBody)}</pre>
                       </div>
                     )}
                     {detail.responseBody && (
                       <div>
                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Response Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{typeof detail.responseBody === 'string' ? detail.responseBody : JSON.stringify(detail.responseBody, null, 2)}</pre>
+                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{safeJson(detail.responseBody)}</pre>
                       </div>
                     )}
                   </div>
