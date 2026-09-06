@@ -36,13 +36,6 @@ const GRAPH_EDGES = [
   { id: 'e6', source: 'order', target: 'payment', status: 'error' },
 ];
 
-// --- THEME COLORS ---
-// Backgrounds: #FDFBF7 (Base), #FFFFFF (Panels)
-// Brand/Active: #5C4033 (Dark Brown), #8B5E34 (Warm Brown)
-// Text: #2D241B (Dark), #8C8276 (Muted)
-// Borders: #EFEBE4
-// Error: #C05640 (Terracotta) / Success: #5A7D59 (Sage)
-
 export default function App() {
   const [selectedApiId, setSelectedApiId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,36 +79,36 @@ export default function App() {
   }, [hoveredNodeId]);
 
   return (
-    <div className="flex h-screen w-screen bg-[#FDFBF7] text-[#2D241B] font-sans antialiased overflow-hidden selection:bg-[#EFEBE4]">
+    <div className="flex h-screen w-screen bg-earth-base text-earth-text font-sans antialiased overflow-hidden selection:bg-earth-border">
       
-      {/* ================= 1. SIDEPANE (Matches Reference Image) ================= */}
-      <aside className="w-[280px] bg-white border-r border-[#EFEBE4] flex flex-col shrink-0 z-20">
+      {/* ================= 1. SIDEPANE ================= */}
+      <aside className="w-[280px] bg-white border-r border-earth-border flex flex-col shrink-0 z-20">
         
         {/* Branding */}
         <div className="px-6 py-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#5C4033] rounded-full flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 bg-earth-accent rounded-full flex items-center justify-center shadow-sm">
             <Activity className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg text-[#2D241B] tracking-tight">BackendBhai</span>
+          <span className="font-bold text-lg text-earth-text tracking-tight">BackendBhai</span>
         </div>
 
         {/* Search Bar */}
         <div className="px-6 mb-4">
-          <div className="relative flex items-center w-full h-10 rounded-lg border border-[#EFEBE4] bg-white overflow-hidden focus-within:border-[#8B5E34] focus-within:ring-1 focus-within:ring-[#8B5E34] transition-all">
-            <Search className="w-4 h-4 text-[#8C8276] ml-3" />
+          <div className="relative flex items-center w-full h-10 rounded-lg border border-earth-border bg-white overflow-hidden focus-within:border-earth-accent focus-within:ring-1 focus-within:ring-earth-accent transition-all">
+            <Search className="w-4 h-4 text-earth-muted ml-3" />
             <input 
               type="text" 
               placeholder="Search traces..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-full px-3 text-sm text-[#2D241B] placeholder:text-[#8C8276] bg-transparent outline-none"
+              className="w-full h-full px-3 text-sm text-earth-text placeholder:text-earth-muted bg-transparent outline-none"
             />
           </div>
         </div>
 
-        <hr className="border-[#EFEBE4] mx-6 mb-4" />
+        <hr className="border-earth-border mx-6 mb-4" />
 
-        {/* API List / Navigation */}
+        {/* API List */}
         <div className="flex-1 overflow-y-auto px-4 space-y-1">
           {filteredApis.map(api => {
             const isSelected = selectedApiId === api.id;
@@ -126,22 +119,22 @@ export default function App() {
                 onClick={() => setSelectedApiId(api.id)}
                 className={`flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
                   isSelected 
-                    ? 'bg-[#5C4033] text-white shadow-md' 
-                    : 'text-[#2D241B] hover:bg-[#FDFBF7]'
+                    ? 'bg-earth-accent text-white shadow-md' 
+                    : 'text-earth-text hover:bg-earth-base'
                 }`}
               >
                 <div className="flex items-center gap-3 truncate">
                   <div className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     isSelected ? 'bg-white/20 text-white' : 
-                    isError ? 'bg-[#FDF0ED] text-[#C05640]' : 'bg-[#F0F5F0] text-[#5A7D59]'
+                    isError ? 'bg-earth-error/10 text-earth-error' : 'bg-earth-success/10 text-earth-success'
                   }`}>
                     {api.method}
                   </div>
-                  <span className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-[#2D241B]'}`}>
+                  <span className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-earth-text'}`}>
                     {api.path}
                   </span>
                 </div>
-                {isError && !isSelected && <AlertCircle className="w-3.5 h-3.5 text-[#C05640] shrink-0 ml-2" />}
+                {isError && !isSelected && <AlertCircle className="w-3.5 h-3.5 text-earth-error shrink-0 ml-2" />}
               </div>
             );
           })}
@@ -149,43 +142,42 @@ export default function App() {
 
         {/* Bottom Profile Section */}
         <div className="p-4 mt-auto">
-          <hr className="border-[#EFEBE4] mb-4" />
-          <div className="flex items-center gap-3 px-2 py-2 hover:bg-[#FDFBF7] rounded-lg cursor-pointer transition-colors text-[#8C8276]">
+          <hr className="border-earth-border mb-4" />
+          <div className="flex items-center gap-3 px-2 py-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors text-earth-muted">
             <Settings className="w-5 h-5" />
             <span className="text-sm font-medium">Settings</span>
           </div>
-          <div className="flex items-center justify-between px-2 py-2 mt-2 hover:bg-[#FDFBF7] rounded-lg cursor-pointer transition-colors">
+          <div className="flex items-center justify-between px-2 py-2 mt-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#8B5E34] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-earth-accent/80 text-white flex items-center justify-center font-bold text-xs shadow-sm">
                 JD
               </div>
-              <span className="text-sm font-medium text-[#2D241B]">Jane Doe</span>
+              <span className="text-sm font-medium text-earth-text">Jane Doe</span>
             </div>
-            <ChevronDown className="w-4 h-4 text-[#8C8276]" />
+            <ChevronDown className="w-4 h-4 text-earth-muted" />
           </div>
         </div>
       </aside>
 
-      {/* ================= 2. MAIN SECTION (Graph vs Detail + Terminal) ================= */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#FDFBF7]">
+      {/* ================= 2. MAIN SECTION ================= */}
+      <main className="flex-1 flex flex-col min-w-0 bg-earth-base">
         <div className="flex-1 overflow-y-auto p-8 relative">
           
           {!selectedApi ? (
             // --- SYSTEM GRAPH ---
             <div className="min-h-full flex flex-col items-center py-4 animate-in fade-in duration-500">
               <div className="text-center mb-6 shrink-0">
-                <h2 className="text-2xl font-bold text-[#2D241B] tracking-tight">System Topology Graph</h2>
-                <p className="text-[#8C8276] text-sm mt-1">Hover over a node to trace pathways. Select an API to diagnose.</p>
+                <h2 className="text-2xl font-bold text-earth-text tracking-tight">System Topology Graph</h2>
+                <p className="text-earth-muted text-sm mt-1">Hover over a node to trace pathways. Select an API to diagnose.</p>
               </div>
 
               <div className="relative w-[1100px] h-[700px] shrink-0 mx-auto">
-                {/* SVG Layer */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
                   <defs>
                     <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#8B5E34" stopOpacity="0" />
-                      <stop offset="50%" stopColor="#8B5E34" stopOpacity="1" />
-                      <stop offset="100%" stopColor="#8B5E34" stopOpacity="0" />
+                      <stop offset="0%" stopColor="currentColor" className="text-earth-accent opacity-0" />
+                      <stop offset="50%" stopColor="currentColor" className="text-earth-accent opacity-100" />
+                      <stop offset="100%" stopColor="currentColor" className="text-earth-accent opacity-0" />
                     </linearGradient>
                   </defs>
 
@@ -204,13 +196,13 @@ export default function App() {
                         <path
                           d={pathData}
                           fill="none"
-                          className={`transition-all duration-500 ${isDimmed ? 'opacity-20 stroke-[#EFEBE4]' : isError ? 'stroke-[#F0CBBF] stroke-[3px] stroke-dasharray-[6,6]' : 'stroke-[#D9D1C7] stroke-[2px]'}`}
+                          className={`transition-all duration-500 ${isDimmed ? 'opacity-20 stroke-earth-border' : isError ? 'stroke-earth-error/30 stroke-[3px] stroke-dasharray-[6,6]' : 'stroke-earth-border stroke-[2px]'}`}
                         />
                         {!isDimmed && (
                           <path
                             d={pathData}
                             fill="none"
-                            stroke={isError ? "#C05640" : "url(#flowGradient)"}
+                            stroke={isError ? "#C05640" : "#097302"}
                             strokeWidth={isError ? 4 : 3}
                             strokeDasharray="50 100"
                             className="animate-[flow_2s_linear_infinite]"
@@ -221,7 +213,6 @@ export default function App() {
                   })}
                 </svg>
 
-                {/* HTML Layer */}
                 {GRAPH_NODES.map(node => {
                   const isHighlighted = !hoveredNodeId || connectedNodes.has(node.id);
                   const isError = node.status === 'error';
@@ -235,17 +226,17 @@ export default function App() {
                       className={`absolute w-48 p-4 rounded-2xl cursor-default transition-all duration-300 z-10 ${
                         !isHighlighted ? 'opacity-40 scale-95' : 'opacity-100 scale-100 hover:-translate-y-1.5'
                       } ${
-                        isError ? 'bg-white shadow-[0_8px_30px_rgb(192,86,64,0.15)] ring-1 ring-[#C05640]/30' : 'bg-white shadow-[0_8px_30px_rgb(92,64,51,0.06)] ring-1 ring-[#EFEBE4]'
+                        isError ? 'bg-white shadow-xl ring-1 ring-earth-error/30' : 'bg-white shadow-lg ring-1 ring-earth-border'
                       }`}
                       style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
                     >
-                      {isError && <div className="absolute -inset-1 bg-[#C05640]/5 rounded-3xl blur-md -z-10 animate-pulse" />}
-                      <div className="text-[9px] font-bold text-[#8C8276] uppercase tracking-widest mb-1.5">{node.type}</div>
-                      <div className={`font-semibold flex items-center gap-2 text-sm ${isError ? 'text-[#3E2723]' : 'text-[#2D241B]'}`}>
-                        <Icon className={`w-4 h-4 ${isError ? 'text-[#C05640]' : 'text-[#8B5E34]'}`} />
+                      {isError && <div className="absolute -inset-1 bg-earth-error/5 rounded-3xl blur-md -z-10 animate-pulse" />}
+                      <div className="text-[9px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">{node.type}</div>
+                      <div className={`font-semibold flex items-center gap-2 text-sm text-earth-text`}>
+                        <Icon className={`w-4 h-4 ${isError ? 'text-earth-error' : 'text-earth-accent'}`} />
                         <span className="truncate">{node.label}</span>
                       </div>
-                      <div className={`text-xs font-mono mt-2.5 font-bold ${isError ? 'text-[#C05640] bg-[#FDF0ED] inline-block px-1.5 py-0.5 rounded' : 'text-[#5A7D59]'}`}>
+                      <div className={`text-xs font-mono mt-2.5 font-bold ${isError ? 'text-earth-error bg-earth-error/10 inline-block px-1.5 py-0.5 rounded' : 'text-earth-success'}`}>
                         {node.detail}
                       </div>
                     </div>
@@ -256,26 +247,26 @@ export default function App() {
           ) : (
             // --- ERROR DETAILS VIEW ---
             <div className="max-w-4xl mx-auto h-full flex flex-col animate-in slide-in-from-right-8 duration-300">
-              <div className="bg-white rounded-2xl shadow-xl shadow-[#5C4033]/5 ring-1 ring-[#EFEBE4] overflow-hidden flex flex-col h-full">
-                <div className={`px-8 py-6 border-b flex items-start justify-between ${selectedApi.type === 'error' ? 'bg-[#FDF0ED] border-[#F0CBBF]' : 'bg-[#FDFBF7] border-[#EFEBE4]'}`}>
+              <div className="bg-white rounded-2xl shadow-xl ring-1 ring-earth-border overflow-hidden flex flex-col h-full">
+                <div className={`px-8 py-6 border-b flex items-start justify-between ${selectedApi.type === 'error' ? 'bg-earth-error/10 border-earth-error/20' : 'bg-earth-base border-earth-border'}`}>
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold font-mono tracking-wider ${selectedApi.type === 'error' ? 'bg-[#C05640] text-white' : 'bg-[#5A7D59] text-white'}`}>
+                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold font-mono tracking-wider text-white ${selectedApi.type === 'error' ? 'bg-earth-error' : 'bg-earth-success'}`}>
                         {selectedApi.method}
                       </span>
-                      <h2 className="text-2xl font-bold text-[#2D241B] font-mono tracking-tight">{selectedApi.path}</h2>
+                      <h2 className="text-2xl font-bold text-earth-text font-mono tracking-tight">{selectedApi.path}</h2>
                     </div>
                     <div className="flex items-center gap-6 text-sm font-mono mt-4">
-                      <span className={`flex items-center gap-1.5 ${selectedApi.type === 'error' ? 'text-[#C05640] font-bold bg-white px-2 py-0.5 rounded shadow-sm' : 'text-[#5A7D59] font-bold bg-white px-2 py-0.5 rounded shadow-sm'}`}>
+                      <span className={`flex items-center gap-1.5 font-bold bg-white px-2 py-0.5 rounded shadow-sm ${selectedApi.type === 'error' ? 'text-earth-error' : 'text-earth-success'}`}>
                         {selectedApi.type === 'error' ? <AlertCircle className="w-4 h-4"/> : <CheckCircle2 className="w-4 h-4"/>}
                         {selectedApi.status}
                       </span>
-                      <span className="text-[#8C8276] flex items-center gap-1.5">
+                      <span className="text-earth-muted flex items-center gap-1.5">
                         <Activity className="w-4 h-4"/> Duration: {selectedApi.duration}
                       </span>
                     </div>
                   </div>
-                  <button onClick={() => setSelectedApiId(null)} className="p-2.5 bg-white shadow-sm border border-[#EFEBE4] hover:border-[#8B5E34] hover:text-[#8B5E34] rounded-xl text-[#8C8276] transition-all hover:scale-105">
+                  <button onClick={() => setSelectedApiId(null)} className="p-2.5 bg-white shadow-sm border border-earth-border hover:border-earth-accent hover:text-earth-accent rounded-xl text-earth-muted transition-all hover:scale-105">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -284,30 +275,24 @@ export default function App() {
                   {selectedApi.type === 'error' ? (
                     <div className="space-y-8">
                       <div>
-                        <h3 className="text-[11px] font-bold text-[#8C8276] mb-2.5 uppercase tracking-widest">Error Message</h3>
-                        <div className="p-4 bg-[#FDF0ED] border border-[#F0CBBF] rounded-xl text-[#C05640] font-mono text-sm shadow-inner">
+                        <h3 className="text-[11px] font-bold text-earth-muted mb-2.5 uppercase tracking-widest">Error Message</h3>
+                        <div className="p-4 bg-earth-error/10 border border-earth-error/20 rounded-xl text-earth-error font-mono text-sm shadow-inner">
                           {selectedApi.errorMsg}
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-[11px] font-bold text-[#8C8276] mb-2.5 uppercase tracking-widest">Exception Stack Trace</h3>
-                        <pre className="p-5 bg-[#2D241B] text-[#EFEBE4] rounded-xl font-mono text-[13px] overflow-x-auto shadow-xl leading-relaxed border border-[#1A1510]">
-                          <code
-                            dangerouslySetInnerHTML={{
-                              __html: (selectedApi.stack ?? '')
-                                .replace(/Error:/g, '<span class="text-red-400 font-bold">Error:</span>')
-                                .replace(/at /g, '<span class="text-indigo-400">at </span>')
-                            }}
-                          />
+                        <h3 className="text-[11px] font-bold text-earth-muted mb-2.5 uppercase tracking-widest">Exception Stack Trace</h3>
+                        <pre className="p-5 bg-earth-text text-earth-border rounded-xl font-mono text-[13px] overflow-x-auto shadow-xl leading-relaxed border border-earth-text">
+                          <code dangerouslySetInnerHTML={{__html: (selectedApi.stack || '').replace(/Error:/g, '<span class="text-earth-error font-bold">Error:</span>').replace(/at /g, '<span class="text-earth-border opacity-70">at </span>')}} />
                         </pre>
                       </div>
                     </div>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-[#8C8276]">
-                      <div className="w-20 h-20 bg-[#F0F5F0] border border-[#D5E3D5] rounded-full flex items-center justify-center mb-6 shadow-sm">
-                        <CheckCircle2 className="w-10 h-10 text-[#5A7D59]" />
+                    <div className="h-full flex flex-col items-center justify-center text-earth-muted">
+                      <div className="w-20 h-20 bg-earth-success/10 border border-earth-success/20 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                        <CheckCircle2 className="w-10 h-10 text-earth-success" />
                       </div>
-                      <p className="text-xl font-semibold text-[#2D241B]">Clean Execution</p>
+                      <p className="text-xl font-semibold text-earth-text">Clean Execution</p>
                       <p className="text-sm mt-2 max-w-sm text-center leading-relaxed">No anomalies detected. Select a degraded API from the sidepane to inspect trace details.</p>
                     </div>
                   )}
@@ -317,10 +302,10 @@ export default function App() {
           )}
         </div>
 
-        {/* ================= 3. TERMINAL (Dark Espresso Brown) ================= */}
-        <div className="h-72 bg-white border-t border-[#EFEBE4] shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(92,64,51,0.03)] z-30">
-          <div className="px-6 py-3 border-b border-[#EFEBE4] flex items-center justify-between shrink-0 bg-[#FDFBF7]">
-            <div className="flex items-center gap-2.5 font-bold text-[#5C4033] text-sm">
+        {/* ================= 3. TERMINAL ================= */}
+        <div className="h-72 bg-white border-t border-earth-border shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(92,64,51,0.03)] z-30">
+          <div className="px-6 py-3 border-b border-earth-border flex items-center justify-between shrink-0 bg-earth-base">
+            <div className="flex items-center gap-2.5 font-bold text-earth-accent text-sm">
               <TerminalSquare className="w-4 h-4" /> 
               <span>Replay Console</span>
             </div>
@@ -329,30 +314,29 @@ export default function App() {
           <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
             <div className="flex items-end justify-between shrink-0">
               <div className="flex-1">
-                <div className="text-[10px] font-bold text-[#8C8276] uppercase tracking-widest mb-1.5">Target Endpoint</div>
-                <div className="font-mono text-sm text-[#2D241B] bg-[#FDFBF7] px-3 py-2 rounded-lg border border-[#EFEBE4] inline-flex items-center gap-2">
-                  {selectedApi ? <><span className="font-bold text-[#8B5E34]">{selectedApi.method}</span> <span>http://localhost:3000{selectedApi.path}</span></> : 'No Target Selected'}
+                <div className="text-[10px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">Target Endpoint</div>
+                <div className="font-mono text-sm text-earth-text bg-earth-base px-3 py-2 rounded-lg border border-earth-border inline-flex items-center gap-2">
+                  {selectedApi ? <><span className="font-bold text-earth-accent">{selectedApi.method}</span> <span>http://localhost:3000{selectedApi.path}</span></> : 'No Target Selected'}
                 </div>
               </div>
               <button 
                 onClick={handleReplay} 
                 disabled={!selectedApi || isReplaying} 
-                className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${!selectedApi ? 'bg-[#EFEBE4] text-[#8C8276] cursor-not-allowed' : 'bg-[#5C4033] hover:bg-[#3E2723] text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
+                className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${!selectedApi ? 'bg-earth-terminal text-earth-muted cursor-not-allowed' : 'bg-earth-accent hover:bg-earth-text bg-earth-terminal shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
               >
                 {isReplaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 {isReplaying ? 'Executing...' : 'Run Diagnostics'}
               </button>
             </div>
 
-            {/* Espresso Dark Terminal Output */}
-            <div className="flex-1 mt-2 p-4 bg-[#2D241B] rounded-xl font-mono text-[13px] text-[#EFEBE4] whitespace-pre-wrap shadow-inner overflow-y-auto border border-[#1A1510]">
+            <div className="flex-1 mt-2 p-4 bg-earth-text rounded-xl font-mono text-[13px] text-earth-border whitespace-pre-wrap shadow-inner overflow-y-auto border border-black/20">
               {replayLog ? (
                 <div className="animate-in fade-in slide-in-from-bottom-2">
-                  <span className="text-[#A08C75]">~/backend-devtools</span>$ replay-trace --target {selectedApi?.id}<br/>
-                  <span className="text-[#8CC28A] mt-2 block">{replayLog}</span>
+                  <span className="text-earth-muted">~/backend-devtools</span>$ replay-trace --target {selectedApi?.id}<br/>
+                  <span className="text-earth-success mt-2 block">{replayLog}</span>
                 </div>
               ) : (
-                <div className="text-[#8C8276] italic">Waiting for execution command...</div>
+                <div className="text-earth-muted italic">Waiting for execution command...</div>
               )}
             </div>
           </div>
