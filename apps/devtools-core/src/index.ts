@@ -15,6 +15,14 @@ const __dirname = path.dirname(__filename);
 export async function buildServer() {
   await fastify.register(cors, { origin: '*' });
 
+  // Handle OTLP protobuf content type from OTel Collector
+  fastify.addContentTypeParser('application/x-protobuf', { parseAs: 'buffer' }, (req, body, done) => {
+    done(null, body);
+  });
+  fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    done(null, body);
+  });
+
   fastify.get('/health', async (request, reply) => {
     try {
       await pool.query('SELECT 1');

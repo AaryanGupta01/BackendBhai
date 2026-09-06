@@ -20,11 +20,13 @@ processors:
 
 exporters:
   # OTLP HTTP Export to DevTools core server per Architecture Decision D-003
+  # traces_endpoint overrides the default /v1/traces suffix
   otlphttp/devtools:
-    endpoint: http://devtools-core:4001/api/v1/telemetry
-    encoding: json
+    endpoint: http://devtools-core:4001
     tls:
       insecure: true
+    compression: none
+    encoding: json
 
   # Debug console logger
   debug:

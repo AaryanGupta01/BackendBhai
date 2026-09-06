@@ -1,39 +1,24 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Server, Search, Filter, AlertCircle, CheckCircle2, 
-  Activity, RefreshCw, X, TerminalSquare, 
-  Database, Shield, CreditCard, Box, Globe
+import {
+  Server, Search, Filter, AlertCircle, CheckCircle2,
+  Activity, RefreshCw, X, TerminalSquare,
+  Database, Shield, CreditCard, Box, Globe, Loader2
 } from 'lucide-react';
 
+import { useRequests } from '@/hooks/useRequests';
+import { useTraceDetail } from '@/hooks/useTraceDetail';
+import { SVC } from '@/data/mock';
+
+const SERVICE_COLORS: Record<string, string> = SVC;
+function getServiceColor(svc: string): string { return SERVICE_COLORS[svc] || '#6b7280'; }
+
 // --- MOCK API DATA ---
-const MOCK_APIS = [
-  { id: '1', method: 'POST', path: '/api/checkout', status: 503, duration: '4,760ms', type: 'error', errorMsg: 'Upstream connection timeout: mock-payment-api failed to respond.', stack: 'Error: 503 Gateway Timeout\n    at PaymentService.charge (/src/payment/service.ts:42:11)\n    at OrderController.create (/src/orders/controller.ts:18:23)' },
-  { id: '2', method: 'GET', path: '/api/users/profile', status: 200, duration: '112ms', type: 'success' },
-  { id: '3', method: 'POST', path: '/api/auth/login', status: 200, duration: '240ms', type: 'success' },
-  { id: '4', method: 'GET', path: '/api/cart/items', status: 200, duration: '45ms', type: 'success' },
-  { id: '5', method: 'PUT', path: '/api/orders/update', status: 500, duration: '1,205ms', type: 'error', errorMsg: 'Transaction deadlock detected.', stack: 'Error: Deadlock found when trying to get lock\n    at Postgres.query (/src/db/pg.ts:99:5)' },
-  { id: '6', method: 'GET', path: '/api/products', status: 200, duration: '88ms', type: 'success' },
-];
+// Mock data removed - using real API
 
 // --- GRAPH DATA ---
-const GRAPH_NODES = [
-  { id: 'client', label: 'Client', type: 'gateway', x: 50, y: 300, icon: Globe, status: 'ok', detail: 'External' },
-  { id: 'gateway', label: 'api-gateway', type: 'service', x: 250, y: 300, icon: Server, status: 'ok', detail: '200 OK' },
-  { id: 'auth', label: 'auth-service', type: 'service', x: 520, y: 120, icon: Shield, status: 'ok', detail: '112ms' },
-  { id: 'order', label: 'order-service', type: 'service', x: 520, y: 480, icon: Box, status: 'error', detail: '4,850ms' },
-  { id: 'redis', label: 'redis', type: 'cache', x: 820, y: 250, icon: Database, status: 'ok', detail: '2ms' },
-  { id: 'postgres', label: 'postgresql', type: 'db', x: 820, y: 480, icon: Database, status: 'ok', detail: '45ms' },
-  { id: 'payment', label: 'mock-payment', type: 'external', x: 820, y: 700, icon: CreditCard, status: 'error', detail: '503 Timeout' },
-];
+// Graph data removed
 
-const GRAPH_EDGES = [
-  { id: 'e1', source: 'client', target: 'gateway', status: 'ok' },
-  { id: 'e2', source: 'gateway', target: 'auth', status: 'ok' },
-  { id: 'e3', source: 'gateway', target: 'order', status: 'ok' },
-  { id: 'e4', source: 'order', target: 'redis', status: 'ok' },
-  { id: 'e5', source: 'order', target: 'postgres', status: 'ok' },
-  { id: 'e6', source: 'order', target: 'payment', status: 'error' },
-];
+// Graph edges removed
 
 export default function App() {
   // State Management
@@ -43,14 +28,16 @@ export default function App() {
   const [isReplaying, setIsReplaying] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  const selectedApi = MOCK_APIS.find(api => api.id === selectedApiId);
+  const { requests, count, loading, error: apiError } = useRequests(5000);
+  const { detail, loading: detailLoading, error: detailError } = useTraceDetail(selectedApiId);
+  const selectedApi = requests.find(r => r.id === selectedApiId);
 
   // Filter Logic
   const filteredApis = useMemo(() => {
-    return MOCK_APIS.filter(api => {
-      if (filters.error && api.type !== 'error') return false;
-      if (filters.get && api.method !== 'GET') return false;
-      if (filters.post && api.method !== 'POST') return false;
+    return requests.filter(r => {
+      if (filters.error && !r.errorCulprit) return false;
+      if (filters.get && r.m !== 'GET') return false;
+      if (filters.post && r.m !== 'POST') return false;
       return true;
     });
   }, [filters]);
