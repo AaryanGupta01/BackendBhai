@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Server, Search, Filter, AlertCircle, CheckCircle2,
-  Activity, RefreshCw, X, TerminalSquare,
-  Database, Shield, CreditCard, Box, Globe
+import { 
+  Server, Search, AlertCircle, CheckCircle2, 
+  Activity, RefreshCw, X, TerminalSquare, 
+  Database, Shield, CreditCard, Box, Globe, Play,
+  ChevronDown, Settings
 } from 'lucide-react';
 import { useRequests, type LiveRequest } from '@/hooks/useRequests';
 import { useTraceDetail, type TraceDetail } from '@/hooks/useTraceDetail';
@@ -14,13 +15,16 @@ function getServiceColor(svc: string | undefined | null): string {
   return SVC[svc] || '#6b7280';
 }
 
-function getStatusColor(s: number | null | undefined): string {
-  const code = s || 0;
-  if (code >= 500) return 'text-red-600';
-  if (code >= 400) return 'text-orange-500';
-  if (code >= 200 && code < 300) return 'text-emerald-600';
-  return 'text-slate-500';
-}
+// --- GRAPH DATA ---
+const GRAPH_NODES = [
+  { id: 'client', label: 'Client', type: 'Gateway', x: 100, y: 250, icon: Globe, status: 'ok', detail: 'External' },
+  { id: 'gateway', label: 'api-gateway', type: 'Service', x: 350, y: 250, icon: Server, status: 'ok', detail: '200 OK' },
+  { id: 'auth', label: 'auth-service', type: 'Service', x: 650, y: 100, icon: Shield, status: 'ok', detail: '112ms' },
+  { id: 'order', label: 'order-service', type: 'Service', x: 650, y: 400, icon: Box, status: 'error', detail: '4,850ms' },
+  { id: 'redis', label: 'redis-cache', type: 'Cache', x: 950, y: 200, icon: Database, status: 'ok', detail: '2ms' },
+  { id: 'postgres', label: 'postgresql', type: 'Database', x: 950, y: 400, icon: Database, status: 'ok', detail: '45ms' },
+  { id: 'payment', label: 'mock-payment', type: 'External', x: 950, y: 600, icon: CreditCard, status: 'error', detail: '503 Timeout' },
+];
 
 function getMethodColor(m: string | undefined | null): string {
   switch (m) {
@@ -40,296 +44,317 @@ function safeJson(value: any): string {
 
 export default function App() {
   const [selectedApiId, setSelectedApiId] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ error: false, get: false, post: false });
-  const [activeTab, setActiveTab] = useState<'waterfall' | 'logs' | 'db' | 'ext' | 'topology'>('waterfall');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [replayLog, setReplayLog] = useState<string | null>(null);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   const { requests, count, loading, error: apiError } = useRequests(5000);
   const { detail, loading: detailLoading } = useTraceDetail(selectedApiId);
 
   const filteredApis = useMemo(() => {
-    return requests.filter(r => {
-      if (filters.error && !r.errorCulprit) return false;
-      if (filters.get && r.m !== 'GET') return false;
-      if (filters.post && r.m !== 'POST') return false;
-      return true;
-    });
-  }, [requests, filters]);
+    return MOCK_APIS.filter(api => 
+      api.path.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      api.method.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
 
-  const toggleFilter = (key: keyof typeof filters) => {
-    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+  const handleReplay = () => {
+    if (!selectedApi) return;
+    setIsReplaying(true);
+    setReplayLog(null);
+    setTimeout(() => {
+      setIsReplaying(false);
+      setReplayLog(`> [${new Date().toLocaleTimeString()}] REPLAY EXECUTED: ${selectedApi.method} ${selectedApi.path}\n> Status: 200 OK (Simulated Fix Applied)\n> Latency: 142ms\n> Trace ID: 8F31C9A`);
+    }, 1500);
   };
 
-  const selectedApi = requests.find(r => r.id === selectedApiId);
-
-  // Safe detail properties with fallbacks
-  const detailMethod = detail?.method || selectedApi?.m || 'GET';
-  const detailPath = detail?.path || selectedApi?.p || '/';
-  const detailStatus = detail?.statusCode || selectedApi?.s || 200;
-  const detailDuration = detail?.durationMs || selectedApi?.d || 0;
-  const detailServices = detail?.services || selectedApi?.svcs || [];
-  const detailSpans = detail?.spans || [];
-  const detailLogs = detail?.logs || [];
-  const detailDbQueries = detail?.dbQueries || [];
-  const detailExternalCalls = detail?.externalCalls || [];
+  const connectedNodes = useMemo(() => {
+    if (!hoveredNodeId) return new Set<string>();
+    const connected = new Set<string>([hoveredNodeId]);
+    const queue = [hoveredNodeId];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      GRAPH_EDGES.forEach(edge => {
+        if (edge.source === current && !connected.has(edge.target)) {
+          connected.add(edge.target);
+          queue.push(edge.target);
+        }
+      });
+    }
+    return connected;
+  }, [hoveredNodeId]);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
-
-      {/* NAVBAR */}
-      <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 shrink-0 shadow-sm z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-            <Activity className="w-5 h-5 text-white" />
+    <div className="flex h-screen w-screen bg-earth-base text-earth-text font-sans antialiased overflow-hidden selection:bg-earth-border">
+      
+      {/* ================= 1. SIDEPANE ================= */}
+      <aside className="w-[280px] bg-white border-r border-earth-border flex flex-col shrink-0 z-20">
+        
+        {/* Branding */}
+        <div className="px-6 py-6 flex items-center gap-3">
+          <div className="w-8 h-8 bg-earth-accent rounded-full flex items-center justify-center shadow-sm">
+            <Activity className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg text-slate-900 tracking-tight">BackendBhai</span>
-          <span className="text-xs text-slate-400 font-mono ml-2">Chrome DevTools for Backend</span>
+          <span className="font-bold text-lg text-earth-text tracking-tight">BackendBhai</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>{count} traces</span>
-        </div>
-      </header>
 
-      {/* BODY */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* SIDEPANE — API List & Filters */}
-        <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-10">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-            <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-slate-700 uppercase tracking-wider">
-              <Filter className="w-4 h-4" /> Filters
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => toggleFilter('error')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors border ${filters.error ? 'bg-red-100 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                Errors Only
-              </button>
-              <button onClick={() => toggleFilter('get')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors border ${filters.get ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                GET
-              </button>
-              <button onClick={() => toggleFilter('post')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors border ${filters.post ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                POST
-              </button>
-            </div>
+        {/* Search Bar */}
+        <div className="px-6 mb-4">
+          <div className="relative flex items-center w-full h-10 rounded-lg border border-earth-border bg-white overflow-hidden focus-within:border-earth-accent focus-within:ring-1 focus-within:ring-earth-accent transition-all">
+            <Search className="w-4 h-4 text-earth-muted ml-3" />
+            <input 
+              type="text" 
+              placeholder="Search traces..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-full px-3 text-sm text-earth-text placeholder:text-earth-muted bg-transparent outline-none"
+            />
           </div>
+        </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {loading && (
-              <div className="p-6 text-center text-sm text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-                Loading traces...
-              </div>
-            )}
-            {apiError && (
-              <div className="p-6 text-center text-sm text-red-400">
-                <AlertCircle className="w-5 h-5 mx-auto mb-2" />
-                {apiError}
-              </div>
-            )}
-            {!loading && filteredApis.length === 0 && (
-              <div className="p-6 text-center text-sm text-slate-400">
-                No traces yet. Place an order on the demo store to see data.
-              </div>
-            )}
-            {filteredApis.map(api => {
-              const isSelected = selectedApiId === api.id;
-              const isError = !!api.errorCulprit;
-              return (
-                <div key={api.id}
-                  onClick={() => setSelectedApiId(api.id)}
-                  className={`cursor-pointer px-4 py-3 border-b border-slate-100 transition-all ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'bg-white border-l-4 border-l-transparent hover:bg-slate-50'}`}>
-                  <div className="flex justify-between items-start mb-1">
-                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${getMethodColor(api.m)}`}>
-                      {api.m}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">{api.t}</span>
+        <hr className="border-earth-border mx-6 mb-4" />
+
+        {/* API List */}
+        <div className="flex-1 overflow-y-auto px-4 space-y-1">
+          {filteredApis.map(api => {
+            const isSelected = selectedApiId === api.id;
+            const isError = api.type === 'error';
+            return (
+              <div 
+                key={api.id}
+                onClick={() => setSelectedApiId(api.id)}
+                className={`flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                  isSelected 
+                    ? 'bg-earth-accent text-white shadow-md' 
+                    : 'text-earth-text hover:bg-earth-base'
+                }`}
+              >
+                <div className="flex items-center gap-3 truncate">
+                  <div className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    isSelected ? 'bg-white/20 text-white' : 
+                    isError ? 'bg-earth-error/10 text-earth-error' : 'bg-earth-success/10 text-earth-success'
+                  }`}>
+                    {api.method}
                   </div>
-                  <div className="text-sm font-medium text-slate-800 truncate mt-1">{api.p}</div>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <div className="flex items-center gap-1">
-                      {isError ? <AlertCircle className="w-3.5 h-3.5 text-red-500" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
-                      <span className={`text-[10px] font-mono font-bold ${getStatusColor(api.s)}`}>{api.s}</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">{api.d}ms</span>
-                  </div>
-                  <div className="flex gap-1 mt-1.5 flex-wrap">
-                    {(api.svcs || []).map(svc => (
-                      <span key={svc} className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getServiceColor(svc) }} />
-                        {svc}
-                      </span>
-                    ))}
-                  </div>
+                  <span className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-earth-text'}`}>
+                    {api.path}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </aside>
+                {isError && !isSelected && <AlertCircle className="w-3.5 h-3.5 text-earth-error shrink-0 ml-2" />}
+              </div>
+            );
+          })}
+        </div>
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Bottom Profile Section */}
+        <div className="p-4 mt-auto">
+          <hr className="border-earth-border mb-4" />
+          <div className="flex items-center gap-3 px-2 py-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors text-earth-muted">
+            <Settings className="w-5 h-5" />
+            <span className="text-sm font-medium">Settings</span>
+          </div>
+          <div className="flex items-center justify-between px-2 py-2 mt-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-earth-accent/80 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                JD
+              </div>
+              <span className="text-sm font-medium text-earth-text">Jane Doe</span>
+            </div>
+            <ChevronDown className="w-4 h-4 text-earth-muted" />
+          </div>
+        </div>
+      </aside>
+
+      {/* ================= 2. MAIN SECTION ================= */}
+      <main className="flex-1 flex flex-col min-w-0 bg-earth-base">
+        <div className="flex-1 overflow-y-auto p-8 relative">
+          
           {!selectedApi ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <Server className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h2 className="text-lg font-semibold text-slate-500">Select a request</h2>
-                <p className="text-sm text-slate-400 mt-1">Click on any trace in the sidebar to view details</p>
-              </div>
-            </div>
-          ) : detailLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-            </div>
-          ) : detail ? (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Request Header */}
-              <div className="px-6 py-4 bg-white border-b border-slate-200 shrink-0">
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded text-xs font-bold border ${getMethodColor(detailMethod)}`}>
-                    {detailMethod}
-                  </span>
-                  <span className="text-lg font-mono font-semibold text-slate-800">{detailPath}</span>
-                  <span className={`text-sm font-bold ${getStatusColor(detailStatus)}`}>
-                    {detailStatus}
-                  </span>
-                  <span className="text-xs text-slate-400 ml-auto font-mono">{detailDuration}ms</span>
-                </div>
-                <div className="flex gap-1 mt-2 flex-wrap">
-                  {(Array.isArray(detailServices) ? detailServices : []).map((svc, i) => (
-                    <span key={`${svc}-${i}`} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getServiceColor(svc) }} />
-                      {svc}
-                    </span>
-                  ))}
-                </div>
+            // --- SYSTEM GRAPH ---
+            <div className="min-h-full flex flex-col items-center py-4 animate-in fade-in duration-500">
+              <div className="text-center mb-6 shrink-0">
+                <h2 className="text-2xl font-bold text-earth-text tracking-tight">System Topology Graph</h2>
+                <p className="text-earth-muted text-sm mt-1">Hover over a node to trace pathways. Select an API to diagnose.</p>
               </div>
 
-              {/* Tabs */}
-              <div className="flex border-b border-slate-200 bg-white shrink-0 px-6">
-                {(['waterfall', 'logs', 'db', 'ext', 'topology'] as const).map(tab => (
-                  <button key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
-                    {tab === 'waterfall' && <TerminalSquare className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'logs' && <Database className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'db' && <Database className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'ext' && <Globe className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'topology' && <Activity className="w-3.5 h-3.5 inline mr-1.5" />}
-                    {tab === 'waterfall' ? 'Waterfall' : tab === 'logs' ? 'Logs' : tab === 'db' ? 'DB Queries' : tab === 'ext' ? 'External APIs' : 'Topology'}
-                  </button>
-                ))}
-              </div>
+              <div className="relative w-[1100px] h-[700px] shrink-0 mx-auto">
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+                  <defs>
+                    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="currentColor" className="text-earth-accent opacity-0" />
+                      <stop offset="50%" stopColor="currentColor" className="text-earth-accent opacity-100" />
+                      <stop offset="100%" stopColor="currentColor" className="text-earth-accent opacity-0" />
+                    </linearGradient>
+                  </defs>
 
-              {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {activeTab === 'waterfall' && (
-                  <div className="space-y-1">
-                    {detailSpans.length > 0 ? (
-                      detailSpans.map((span: any, i: number) => (
-                        <div key={span.spanId || i}
-                          className="flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-50 group"
-                          style={{ paddingLeft: `${((span.depth || 0) * 24) + 12}px` }}>
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getServiceColor(span.service) }} />
-                          <span className="text-xs font-mono text-slate-500 w-12 shrink-0">{span.kind || 'span'}</span>
-                          <span className="text-sm font-medium text-slate-700 flex-1 truncate">{span.operation || 'unknown'}</span>
-                          <span className="text-xs text-slate-400 font-mono shrink-0">{span.service || 'unknown'}</span>
-                          <span className="text-xs text-slate-500 font-mono w-16 text-right shrink-0">{span.durationMs || 0}ms</span>
-                          <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
-                            <div className="h-full rounded-full" style={{
-                              width: `${Math.max(span.percentageOfTotal || 0, 2)}%`,
-                              backgroundColor: getServiceColor(span.service)
-                            }} />
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-sm text-slate-400 py-8">No spans in this trace</div>
-                    )}
-                  </div>
-                )}
+                  {GRAPH_EDGES.map(edge => {
+                    const sourceNode = GRAPH_NODES.find(n => n.id === edge.source)!;
+                    const targetNode = GRAPH_NODES.find(n => n.id === edge.target)!;
+                    const dx = Math.abs(targetNode.x - sourceNode.x);
+                    const pathData = `M ${sourceNode.x} ${sourceNode.y} C ${sourceNode.x + dx / 2} ${sourceNode.y} ${targetNode.x - dx / 2} ${targetNode.y} ${targetNode.x} ${targetNode.y}`;
+                    
+                    const isHighlighted = hoveredNodeId && connectedNodes.has(edge.source) && connectedNodes.has(edge.target);
+                    const isDimmed = hoveredNodeId && !isHighlighted;
+                    const isError = edge.status === 'error';
 
-                {activeTab === 'logs' && (
-                  <div className="space-y-2">
-                    {detailLogs.length > 0 ? (
-                      detailLogs.map((log: any, i: number) => (
-                        <div key={i} className="font-mono text-xs bg-slate-900 text-green-400 p-3 rounded overflow-x-auto">
-                          <span className="text-slate-500">[{log.level || 'info'}]</span> {log.message || JSON.stringify(log)}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-sm text-slate-400 py-8">No correlated logs for this trace</div>
-                    )}
-                  </div>
-                )}
+                    return (
+                      <g key={edge.id}>
+                        <path
+                          d={pathData}
+                          fill="none"
+                          className={`transition-all duration-500 ${isDimmed ? 'opacity-20 stroke-earth-border' : isError ? 'stroke-earth-error/30 stroke-[3px] stroke-dasharray-[6,6]' : 'stroke-earth-border stroke-[2px]'}`}
+                        />
+                        {!isDimmed && (
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke={isError ? "#C05640" : "#097302"}
+                            strokeWidth={isError ? 4 : 3}
+                            strokeDasharray="50 100"
+                            className="animate-[flow_2s_linear_infinite]"
+                          />
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
 
-                {activeTab === 'db' && (
-                  <div className="space-y-2">
-                    {detailDbQueries.length > 0 ? (
-                      detailDbQueries.map((q: any, i: number) => (
-                        <div key={i} className="bg-white border border-slate-200 rounded-lg p-4">
-                          <div className="text-xs font-mono text-slate-500 mb-2">{q.service || 'postgres'}</div>
-                          <div className="text-sm font-mono bg-slate-50 p-2 rounded text-slate-700">{q.query || q.statement || 'N/A'}</div>
-                          <div className="text-xs text-slate-400 mt-2">{q.durationMs || 0}ms</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-sm text-slate-400 py-8">No DB queries captured</div>
-                    )}
-                  </div>
-                )}
+                {GRAPH_NODES.map(node => {
+                  const isHighlighted = !hoveredNodeId || connectedNodes.has(node.id);
+                  const isError = node.status === 'error';
+                  const Icon = node.icon;
 
-                {activeTab === 'ext' && (
-                  <div className="space-y-2">
-                    {detailExternalCalls.length > 0 ? (
-                      detailExternalCalls.map((call: any, i: number) => (
-                        <div key={i} className="bg-white border border-slate-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Globe className="w-4 h-4 text-blue-500" />
-                            <span className="text-sm font-medium">{call.method || 'GET'} {call.url || call.target || 'unknown'}</span>
-                          </div>
-                          <div className="text-xs text-slate-400">{call.durationMs || 0}ms — {call.statusCode || call.status || 'N/A'}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-sm text-slate-400 py-8">No external API calls captured</div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'topology' && (
-                  <TopologyGraph />
-                )}
-              </div>
-
-              {/* Request/Response Bodies */}
-              {(detail.requestBody || detail.responseBody) && (
-                <div className="border-t border-slate-200 bg-white shrink-0 max-h-48 overflow-y-auto">
-                  <div className="px-6 py-3">
-                    {detail.requestBody && (
-                      <div className="mb-3">
-                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Request Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{safeJson(detail.requestBody)}</pre>
+                  return (
+                    <div
+                      key={node.id}
+                      onMouseEnter={() => setHoveredNodeId(node.id)}
+                      onMouseLeave={() => setHoveredNodeId(null)}
+                      className={`absolute w-48 p-4 rounded-2xl cursor-default transition-all duration-300 z-10 ${
+                        !isHighlighted ? 'opacity-40 scale-95' : 'opacity-100 scale-100 hover:-translate-y-1.5'
+                      } ${
+                        isError ? 'bg-white shadow-xl ring-1 ring-earth-error/30' : 'bg-white shadow-lg ring-1 ring-earth-border'
+                      }`}
+                      style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
+                    >
+                      {isError && <div className="absolute -inset-1 bg-earth-error/5 rounded-3xl blur-md -z-10 animate-pulse" />}
+                      <div className="text-[9px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">{node.type}</div>
+                      <div className={`font-semibold flex items-center gap-2 text-sm text-earth-text`}>
+                        <Icon className={`w-4 h-4 ${isError ? 'text-earth-error' : 'text-earth-accent'}`} />
+                        <span className="truncate">{node.label}</span>
                       </div>
-                    )}
-                    {detail.responseBody && (
-                      <div>
-                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Response Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{safeJson(detail.responseBody)}</pre>
+                      <div className={`text-xs font-mono mt-2.5 font-bold ${isError ? 'text-earth-error bg-earth-error/10 inline-block px-1.5 py-0.5 rounded' : 'text-earth-success'}`}>
+                        {node.detail}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-              No detail data available
+            // --- ERROR DETAILS VIEW ---
+            <div className="max-w-4xl mx-auto h-full flex flex-col animate-in slide-in-from-right-8 duration-300">
+              <div className="bg-white rounded-2xl shadow-xl ring-1 ring-earth-border overflow-hidden flex flex-col h-full">
+                <div className={`px-8 py-6 border-b flex items-start justify-between ${selectedApi.type === 'error' ? 'bg-earth-error/10 border-earth-error/20' : 'bg-earth-base border-earth-border'}`}>
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold font-mono tracking-wider text-white ${selectedApi.type === 'error' ? 'bg-earth-error' : 'bg-earth-success'}`}>
+                        {selectedApi.method}
+                      </span>
+                      <h2 className="text-2xl font-bold text-earth-text font-mono tracking-tight">{selectedApi.path}</h2>
+                    </div>
+                    <div className="flex items-center gap-6 text-sm font-mono mt-4">
+                      <span className={`flex items-center gap-1.5 font-bold bg-white px-2 py-0.5 rounded shadow-sm ${selectedApi.type === 'error' ? 'text-earth-error' : 'text-earth-success'}`}>
+                        {selectedApi.type === 'error' ? <AlertCircle className="w-4 h-4"/> : <CheckCircle2 className="w-4 h-4"/>}
+                        {selectedApi.status}
+                      </span>
+                      <span className="text-earth-muted flex items-center gap-1.5">
+                        <Activity className="w-4 h-4"/> Duration: {selectedApi.duration}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedApiId(null)} className="p-2.5 bg-white shadow-sm border border-earth-border hover:border-earth-accent hover:text-earth-accent rounded-xl text-earth-muted transition-all hover:scale-105">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="p-8 flex-1 overflow-y-auto bg-transparent">
+                  {selectedApi.type === 'error' ? (
+                    <div className="space-y-8">
+                      <div>
+                        <h3 className="text-[11px] font-bold text-earth-muted mb-2.5 uppercase tracking-widest">Error Message</h3>
+                        <div className="p-4 bg-earth-error/10 border border-earth-error/20 rounded-xl text-earth-error font-mono text-sm shadow-inner">
+                          {selectedApi.errorMsg}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-[11px] font-bold text-earth-muted mb-2.5 uppercase tracking-widest">Exception Stack Trace</h3>
+                        <pre className="p-5 bg-earth-text text-earth-border rounded-xl font-mono text-[13px] overflow-x-auto shadow-xl leading-relaxed border border-earth-text">
+                          <code dangerouslySetInnerHTML={{__html: (selectedApi.stack || '').replace(/Error:/g, '<span class="text-earth-error font-bold">Error:</span>').replace(/at /g, '<span class="text-earth-border opacity-70">at </span>')}} />
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-earth-muted">
+                      <div className="w-20 h-20 bg-earth-success/10 border border-earth-success/20 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                        <CheckCircle2 className="w-10 h-10 text-earth-success" />
+                      </div>
+                      <p className="text-xl font-semibold text-earth-text">Clean Execution</p>
+                      <p className="text-sm mt-2 max-w-sm text-center leading-relaxed">No anomalies detected. Select a degraded API from the sidepane to inspect trace details.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
-        </main>
-      </div>
+        </div>
+
+        {/* ================= 3. TERMINAL ================= */}
+        <div className="h-72 bg-white border-t border-earth-border shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(92,64,51,0.03)] z-30">
+          <div className="px-6 py-3 border-b border-earth-border flex items-center justify-between shrink-0 bg-earth-base">
+            <div className="flex items-center gap-2.5 font-bold text-earth-accent text-sm">
+              <TerminalSquare className="w-4 h-4" /> 
+              <span>Replay Console</span>
+            </div>
+          </div>
+          
+          <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
+            <div className="flex items-end justify-between shrink-0">
+              <div className="flex-1">
+                <div className="text-[10px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">Target Endpoint</div>
+                <div className="font-mono text-sm text-earth-text bg-earth-base px-3 py-2 rounded-lg border border-earth-border inline-flex items-center gap-2">
+                  {selectedApi ? <><span className="font-bold text-earth-accent">{selectedApi.method}</span> <span>http://localhost:3000{selectedApi.path}</span></> : 'No Target Selected'}
+                </div>
+              </div>
+              <button 
+                onClick={handleReplay} 
+                disabled={!selectedApi || isReplaying} 
+                className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${!selectedApi ? 'bg-earth-terminal text-earth-muted cursor-not-allowed' : 'bg-earth-accent hover:bg-earth-text bg-earth-terminal shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
+              >
+                {isReplaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                {isReplaying ? 'Executing...' : 'Run Diagnostics'}
+              </button>
+            </div>
+
+            <div className="flex-1 mt-2 p-4 bg-earth-text rounded-xl font-mono text-[13px] text-earth-border whitespace-pre-wrap shadow-inner overflow-y-auto border border-black/20">
+              {replayLog ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                  <span className="text-earth-muted">~/backend-devtools</span>$ replay-trace --target {selectedApi?.id}<br/>
+                  <span className="text-earth-success mt-2 block">{replayLog}</span>
+                </div>
+              ) : (
+                <div className="text-earth-muted italic">Waiting for execution command...</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes flow {
+          to { stroke-dashoffset: -150; }
+        }
+      `}} />
     </div>
   );
 }
