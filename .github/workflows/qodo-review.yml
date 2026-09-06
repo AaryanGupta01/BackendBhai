@@ -1,0 +1,29 @@
+# Qodo Merge - AI Code Review for PRs
+# Runs automatically when PRs target the dev branch
+
+name: Qodo AI Code Review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Qodo Merge - AI Review
+        uses: qodo-ai/pr-agent@main
+        with:
+          config_file: .pr_agent.toml
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

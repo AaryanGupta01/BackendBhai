@@ -88,8 +88,8 @@ services:
 
   api-gateway:
     build:
-      context: .
-      dockerfile: apps/demo-store/api-gateway/Dockerfile
+      context: ./apps/demo-store/api-gateway
+      dockerfile: Dockerfile
     container_name: backendbhai-api-gateway
     ports:
       - "3000:3000"
@@ -106,8 +106,8 @@ services:
 
   auth-service:
     build:
-      context: .
-      dockerfile: apps/demo-store/auth-service/Dockerfile
+      context: ./apps/demo-store/auth-service
+      dockerfile: Dockerfile
     container_name: backendbhai-auth-service
     ports:
       - "3001:3001"
@@ -120,8 +120,8 @@ services:
 
   order-service:
     build:
-      context: .
-      dockerfile: apps/demo-store/order-service/Dockerfile
+      context: ./apps/demo-store/order-service
+      dockerfile: Dockerfile
     container_name: backendbhai-order-service
     ports:
       - "3002:3002"
@@ -144,8 +144,8 @@ services:
 
   payment-service:
     build:
-      context: .
-      dockerfile: apps/demo-store/payment-service/Dockerfile
+      context: ./apps/demo-store/payment-service
+      dockerfile: Dockerfile
     container_name: backendbhai-payment-service
     ports:
       - "3003:3003"
@@ -160,8 +160,8 @@ services:
 
   mock-payment-api:
     build:
-      context: .
-      dockerfile: apps/demo-store/mock-payment-api/Dockerfile
+      context: ./apps/demo-store/mock-payment-api
+      dockerfile: Dockerfile
     container_name: backendbhai-mock-payment-api
     ports:
       - "4000:4000"
@@ -176,8 +176,8 @@ services:
 
   demo-frontend:
     build:
-      context: .
-      dockerfile: apps/demo-store/frontend/Dockerfile
+      context: ./apps/demo-store/frontend
+      dockerfile: Dockerfile
     container_name: backendbhai-demo-frontend
     ports:
       - "4002:4002"
@@ -194,8 +194,8 @@ services:
 
   amazon-store:
     build:
-      context: .
-      dockerfile: apps/demo-store/amazon-store/Dockerfile
+      context: ./apps/demo-store/amazon-store
+      dockerfile: Dockerfile
     container_name: backendbhai-amazon-store
     ports:
       - "4003:4003"
