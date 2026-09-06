@@ -5,4 +5,4 @@ RUN npm install --omit=dev
 COPY dist ./dist
 COPY lib ./lib
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["node", "--import", "./lib/telemetry/preload.mjs", "dist/index.js"]

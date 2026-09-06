@@ -104,65 +104,64 @@
       </div>
     </header>
 
-    <!-- Master Chaos Control Engine -->
+    <!-- Failure Simulation Test Area (per-request headers, no global state) -->
     <div class="chaos-panel">
       <div class="chaos-header">
         <div class="chaos-title">
-          <span>🎮 Global Chaos Controller</span>
+          <span>🎮 Failure Simulator</span>
         </div>
         <div class="current-state-pill">
-          <span class="pulse-dot" id="state-dot"></span>
-          <span>Active Mode: <strong id="active-state-name" style="color: #38bdf8;">NORMAL</strong></span>
+          <span class="pulse-dot" id="state-dot" style="background: #10b981;"></span>
+          <span>Per-request headers — no global mode</span>
         </div>
       </div>
 
       <div class="state-toggle-grid">
-        <!-- 1. Normal Mode -->
-        <div class="btn-toggle active" id="mode-normal" onclick="setChaosMode('normal')">
+        <!-- 1. Normal Path -->
+        <div class="btn-toggle active" id="mode-normal" onclick="setSimMode('normal')">
           <div class="icon">🟢</div>
           <div class="title">Normal Path</div>
-          <div class="desc">Fast 200ms checkout, no deliberate delays or errors.</div>
+          <div class="desc">Fast checkout, no deliberate delays or errors.</div>
         </div>
 
-        <!-- 2. Heavy Order Mode -->
-        <div class="btn-toggle" id="mode-heavy" onclick="setChaosMode('heavy')">
+        <!-- 2. Heavy Order -->
+        <div class="btn-toggle" id="mode-heavy" onclick="setSimMode('heavy')">
           <div class="icon">🐢</div>
           <div class="title">Heavy Order DB</div>
           <div class="desc">&gt;10 items forces 3s PostgreSQL delay (SELECT pg_sleep).</div>
         </div>
 
-        <!-- 3. Auth Timeout Mode -->
-        <div class="btn-toggle" id="mode-invalid-auth" onclick="setChaosMode('invalid-auth')">
+        <!-- 3. Auth Timeout -->
+        <div class="btn-toggle" id="mode-invalid-auth" onclick="setSimMode('invalid-auth')">
           <div class="icon">⛔</div>
           <div class="title">Auth Timeout</div>
           <div class="desc">Invalid auth token causes 5s timeout & 401 rejection.</div>
         </div>
 
-        <!-- 4. Payment 503 Mode -->
-        <div class="btn-toggle" id="mode-payment-503" onclick="setChaosMode('payment-503')">
+        <!-- 4. Payment 503 -->
+        <div class="btn-toggle" id="mode-payment-503" onclick="setSimMode('payment-503')">
           <div class="icon">💥</div>
           <div class="title">Payment 503</div>
-          <div class="desc">External payment gateway returns 503 Unavailable.</div>
+          <div class="desc">Adds x-simulate-503 header — gateway returns 503 Unavailable.</div>
         </div>
 
-        <!-- 5. Slow Payment Mode -->
-        <div class="btn-toggle" id="mode-slow-payment" onclick="setChaosMode('slow-payment')">
+        <!-- 5. Slow Payment -->
+        <div class="btn-toggle" id="mode-slow-payment" onclick="setSimMode('slow-payment')">
           <div class="icon">⏳</div>
           <div class="title">Slow Payment</div>
-          <div class="desc">WireMock 5s external payment gateway authorization delay.</div>
+          <div class="desc">Adds x-simulate-slow header — 5s payment gateway delay.</div>
         </div>
 
         <!-- 6. Random Chaos -->
-        <div class="btn-toggle" id="mode-random" onclick="setChaosMode('random')">
+        <div class="btn-toggle" id="mode-random" onclick="setSimMode('random')">
           <div class="icon">🎲</div>
           <div class="title">Random Chaos</div>
-          <div class="desc">Intermittent 30% slow delay, 10% 503, periodic cache miss.</div>
+          <div class="desc">Intermittent 30% slow delay, 10% 503 per request.</div>
         </div>
       </div>
 
       <div class="chaos-info">
-        <span id="chaos-description">All orders placed on the Amazon Store (:4003) will execute normally with fast response times.</span>
-        <span style="color: #94a3b8; font-size: 0.8rem;" id="chaos-sync-time">Synced</span>
+        <span id="chaos-description">The selected simulation is applied per test request below — the Amazon Store stays unaffected and no polling traffic is generated.</span>
       </div>
     </div>
 
@@ -247,8 +246,6 @@
 
   <script>
     const API_GATEWAY = window.API_GATEWAY_URL || 'http://localhost:3000';
-    let currentActiveMode = 'normal';
-
     let cart = [{ id: 'item-1', name: 'Mechanical Keyboard', price: 89.99, qty: 1 }];
 
     function updateCartUI() {
@@ -278,58 +275,29 @@
       box.prepend(div);
     }
 
-    async function setChaosMode(mode) {
-      try {
-        const res = await fetch(`${API_GATEWAY}/api/chaos-state`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode })
-        });
-        const data = await res.json();
-        if (data.success) {
-          applyStateUI(data.chaosState.mode, data.chaosState.description);
-          log(`Global Chaos state changed to: <strong>${mode.toUpperCase()}</strong>. Amazon storefront will now reflect this!`, 'status-200');
-        }
-      } catch (err) {
-        log(`Failed to update chaos state on gateway: ${err.message}`, 'status-500');
-      }
-    }
+    // Per-request simulation mode (local to this dashboard — no global state, no polling)
+    let simMode = 'normal';
+    const SIM_DESCRIPTIONS = {
+      'normal': 'No simulated failure — requests go through normally.',
+      'heavy': 'Test orders will include >10 items to trigger the 3s DB delay.',
+      'invalid-auth': 'Test orders will send an invalid auth token (5s timeout, 401).',
+      'slow-payment': 'Test orders will carry the x-simulate-slow header (5s payment delay).',
+      'payment-503': 'Test orders will carry the x-simulate-503 header (payment 503).',
+      'random': 'Each test request randomly gets slow (30%) or 503 (10%) headers.'
+    };
 
-    function applyStateUI(mode, desc) {
-      currentActiveMode = mode;
+    function setSimMode(mode) {
+      simMode = mode;
       document.querySelectorAll('.btn-toggle').forEach(el => el.classList.remove('active'));
       const activeBtn = document.getElementById(`mode-${mode}`);
       if (activeBtn) activeBtn.classList.add('active');
 
-      const nameEl = document.getElementById('active-state-name');
       const descEl = document.getElementById('chaos-description');
       const dot = document.getElementById('state-dot');
+      if (descEl) descEl.textContent = SIM_DESCRIPTIONS[mode] || '';
+      if (dot) dot.style.background = (mode === 'normal') ? '#10b981' : (mode === 'invalid-auth' || mode === 'payment-503') ? '#ef4444' : '#8b5cf6';
 
-      nameEl.textContent = mode.toUpperCase();
-      descEl.textContent = desc;
-
-      if (mode === 'normal') {
-        dot.style.background = '#10b981';
-      } else if (mode === 'heavy') {
-        dot.style.background = '#f59e0b';
-      } else if (mode === 'invalid-auth' || mode === 'payment-503') {
-        dot.style.background = '#ef4444';
-      } else {
-        dot.style.background = '#8b5cf6';
-      }
-    }
-
-    async function pollChaosState() {
-      try {
-        const res = await fetch(`${API_GATEWAY}/api/chaos-state`);
-        if (res.ok) {
-          const state = await res.json();
-          if (state.mode !== currentActiveMode) {
-            applyStateUI(state.mode, state.description);
-          }
-          document.getElementById('chaos-sync-time').textContent = 'Synced ' + new Date().toLocaleTimeString();
-        }
-      } catch (_) {}
+      log(`Simulation mode for test requests: <strong>${mode.toUpperCase()}</strong>`, 'status-200');
     }
 
     async function triggerTestOrder(overrideMode) {
@@ -337,17 +305,36 @@
       let payload = { userId: 'user-42', items: [...cart] };
       let headers = { 'Content-Type': 'application/json' };
 
-      if (overrideMode === 'heavy') {
+      // Apply the selected per-request simulation
+      const effectiveMode = overrideMode || simMode;
+      if (effectiveMode === 'heavy') {
         payload.items = [];
         for (let i = 1; i <= 12; i++) {
           payload.items.push({ id: `item-${i}`, name: `Bulk Item #${i}`, qty: 1, price: 10.00 });
         }
         log('Executing forced Heavy Order (>10 items)...');
-      } else if (overrideMode === 'invalid-auth') {
+      } else if (effectiveMode === 'invalid-auth') {
         headers['Authorization'] = 'Bearer invalid';
         log('Executing forced Invalid Auth (Bearer invalid)...');
+      } else if (effectiveMode === 'slow-payment') {
+        headers['x-simulate-slow'] = 'true';
+        log('Executing order with x-simulate-slow (5s payment delay)...');
+      } else if (effectiveMode === 'payment-503') {
+        headers['x-simulate-503'] = 'true';
+        log('Executing order with x-simulate-503 (payment 503)...');
+      } else if (effectiveMode === 'random') {
+        const rand = Math.random();
+        if (rand < 0.10) {
+          headers['x-simulate-503'] = 'true';
+          log('Random simulation: 503 (10%)...');
+        } else if (rand < 0.40) {
+          headers['x-simulate-slow'] = 'true';
+          log('Random simulation: slow (30%)...');
+        } else {
+          log('Random simulation: none...');
+        }
       } else {
-        log(`Executing order with active state [${currentActiveMode}]...`);
+        log('Executing normal test order...');
       }
 
       try {
@@ -372,15 +359,16 @@
     async function triggerBatchOrders(count = 10) {
       log(`Starting batch of ${count} requests...`, 'status-200');
       for (let i = 1; i <= count; i++) {
-        await triggerTestOrder('normal');
+        await triggerTestOrder();
         await new Promise(r => setTimeout(r, 400));
       }
       log(`Batch completed.`, 'status-200');
     }
 
     updateCartUI();
-    setInterval(pollChaosState, 2000);
-    pollChaosState();
+    // NOTE: chaos-state polling removed — it was flooding the DevTools trace
+    // list with GET /api/chaos-state requests every 2 seconds. Simulation is
+    // now applied per-request via headers instead of a global gateway state.
   </script>
 </body>
 </html>

@@ -2,6 +2,10 @@ import { Pool } from 'pg';
 
 export class QueryRepository {
   private pool: Pool;
+  // Traces are immutable once ingested — cache assembled waterfalls per trace_id.
+  // Bounded to prevent unbounded memory growth in long-running sessions.
+  private waterfallCache = new Map<string, object>();
+  private static readonly WATERFALL_CACHE_MAX = 500;
   private static instance: QueryRepository;
 
   constructor(pool: Pool) {
@@ -92,6 +96,8 @@ export class QueryRepository {
 
     const mappedSpans = spanRows.map(span => {
       const attrs = this.parseJson(span.attributes) || {};
+      // Support both new (http.response.status_code) and old (http.status_code) semconv
+      const rawStatusCode = attrs['http.response.status_code'] ?? attrs['http.status_code'];
       return {
         spanId: span.id,
         parentSpanId: span.parent_span_id,
@@ -101,7 +107,7 @@ export class QueryRepository {
         startTimestamp: this.toIsoString(span.start_time),
         durationMs: parseInt(span.duration_ms || '0', 10),
         status: span.status === 'error' ? 'ERROR' : 'OK',
-        statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
+        statusCode: rawStatusCode != null ? parseInt(rawStatusCode, 10) : undefined,
         attributes: attrs
       };
     });
@@ -110,24 +116,24 @@ export class QueryRepository {
     const services = [...new Set(mappedSpans.map(s => s.service).filter(Boolean))];
 
     const dbQueries = mappedSpans
-      .filter(s => s.attributes['db.system'])
+      .filter(s => s.attributes['db.system'] && (s.attributes['db.statement'] || s.attributes['db.operation']))
       .map(s => ({
         spanId: s.spanId,
         service: s.service,
-        operation: s.attributes['db.operation.name'] || 'DB',
-        table: s.attributes['db.sql.table'] || '',
+        operation: s.attributes['db.operation'] || s.attributes['db.operation.name'] || (s.attributes['db.statement'] || '').split(' ')[0] || 'DB',
+        table: s.attributes['db.sql.table'] || s.attributes['db.name'] || '',
         statement: s.attributes['db.statement'] || '',
         durationMs: s.durationMs,
         status: s.status
       }));
 
     const externalCalls = mappedSpans
-      .filter(s => s.kind === 'client' && s.attributes['http.request.method'])
+      .filter(s => s.kind === 'client' && (s.attributes['http.request.method'] || s.attributes['http.method']) && s.attributes['http.url'])
       .map(s => ({
         spanId: s.spanId,
         service: s.service,
-        method: s.attributes['http.request.method'],
-        url: s.attributes['url.full'] || '',
+        method: s.attributes['http.request.method'] || s.attributes['http.method'],
+        url: s.attributes['url.full'] || s.attributes['http.url'] || '',
         statusCode: s.statusCode,
         durationMs: s.durationMs,
         status: s.status
@@ -164,6 +170,11 @@ export class QueryRepository {
   }
 
   async getTraceWaterfall(traceId: string) {
+    // Waterfall assembly is recursive and traces are immutable once ingested,
+    // so cache the assembled result per trace_id.
+    const cached = this.waterfallCache.get(traceId);
+    if (cached) return cached;
+
     const traceQuery = `SELECT start_time, duration_ms FROM traces WHERE id = $1`;
     const { rows: traceRows } = await this.pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
@@ -209,7 +220,9 @@ export class QueryRepository {
           depth,
           order: order++,
           status: n.status === 'error' ? 'ERROR' : 'OK',
-          statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
+          statusCode: attrs['http.response.status_code']
+            ? parseInt(attrs['http.response.status_code'], 10)
+            : (attrs['http.status_code'] ? parseInt(attrs['http.status_code'], 10) : undefined),
           attributes: attrs
         });
         if (n.children?.length) traverse(n.children, depth + 1);
@@ -217,12 +230,19 @@ export class QueryRepository {
     }
     traverse(rootNodes, 0);
 
-    return {
+    const result = {
       traceId,
       totalDurationMs: traceDuration,
       startTimestamp: this.toIsoString(trace.start_time),
       spans: flatList
     };
+    if (this.waterfallCache.size >= QueryRepository.WATERFALL_CACHE_MAX) {
+      // Evict oldest entry (Map preserves insertion order)
+      const oldest = this.waterfallCache.keys().next().value;
+      if (oldest !== undefined) this.waterfallCache.delete(oldest);
+    }
+    this.waterfallCache.set(traceId, result);
+    return result;
   }
 
   async getLogsByTraceId(traceId: string) {

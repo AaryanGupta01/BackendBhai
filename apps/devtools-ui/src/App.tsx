@@ -4,11 +4,10 @@ import {
   Activity, RefreshCw, X, TerminalSquare,
   Database, Shield, CreditCard, Box, Globe
 } from 'lucide-react';
-
 import { useRequests, type LiveRequest } from '@/hooks/useRequests';
 import { useTraceDetail, type TraceDetail } from '@/hooks/useTraceDetail';
 import { TopologyGraph } from '@/components/TopologyGraph';
-import { SVC } from '@/data/mock';
+import { SVC } from '@/lib/serviceColors';
 
 function getServiceColor(svc: string | undefined | null): string {
   if (!svc) return '#6b7280';
