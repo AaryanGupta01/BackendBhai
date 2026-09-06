@@ -1,92 +1,78 @@
-# Architecture Decisions
+# Architecture Decisions — Dev 5 (Abhinav)
 
-> **Maintained by:** Integration Engineer (Workstream 5)
-> **Purpose:** Document all significant architecture decisions and their rationale
-
----
-
-## Decision Log
-
-### D-001: Repository Structure — Five Workstreams
-
-- **Date:** September 6, 2026
-- **Decision:** Split the repository into five independently developable workstreams
-- **Rationale:** Parallel development with clear boundaries; contract-first integration
-- **Impact:** All developers; `.agents/`, `contracts/`, `.ai/` directories created
-- **Status:** Implemented
-
-### D-002: OTel Collector as Separate Container
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (Architecture Issue #2)
-- **Decision:** OTel Collector runs as a separate Docker container, not embedded in DevTools server
-- **Rationale:** Simpler to debug, aligns with backlog tasks, standard deployment pattern
-- **Impact:** Workstream 1 (Collector config), Workstream 4 (Docker Compose)
-- **Status:** Implemented in contracts
-
-### D-003: OTLP HTTP Export (Not gRPC)
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (Architecture Issue #1)
-- **Decision:** Collector exports via OTLP HTTP (`otlphttp` exporter) to DevTools server, not gRPC
-- **Rationale:** Simpler to implement; DevTools server receives plain JSON, not protobuf
-- **Impact:** Workstream 1 (Collector config), Workstream 2 (HTTP receiver instead of gRPC)
-- **Status:** Implemented in contracts
-
-### D-004: Request Body Capture via Shared Middleware
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (Architecture Issue #3)
-- **Decision:** Request/response bodies captured via shared Express middleware in `packages/instrumentation/`
-- **Rationale:** Auto-instrumentation doesn't capture bodies; shared middleware ensures consistency
-- **Impact:** Workstream 1 (middleware implementation), Workstream 4 (demo services use middleware)
-- **Status:** Implemented in contracts
-
-### D-005: Console.log Monkey-Patch for Log Correlation
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (Architecture Issue #4)
-- **Decision:** Patch `console.log`/`console.error` to auto-inject `trace_id` and `span_id`
-- **Rationale:** OTel auto-instrumentation doesn't attach trace context to console output; monkey-patch ensures zero-change log correlation
-- **Impact:** Workstream 1 (patch implementation), Workstream 2 (log storage)
-- **Status:** Implemented in contracts
-
-### D-006: WebSocket Payload Shape = REST Response Shape
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (MUST FIX #5)
-- **Decision:** `new_request` WebSocket event payload MUST match `GET /api/v1/requests` response item shape exactly
-- **Rationale:** Frontend inserts WebSocket events into React Query cache directly; shape mismatch breaks UI
-- **Impact:** Workstream 2 (WebSocket handler), Workstream 3 (API client)
-- **Status:** Implemented in contracts (shared `RequestSummary` type)
-
-### D-007: MVP Feature Priority
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (MVP Freeze)
-- **Decision:** Tier 1 (must have): Request Explorer, Waterfall, Overview, telemetry ingestion, seed data. Tier 2: WebSocket updates, Logs, DB Queries, External APIs, Command Palette. Tier 3 (optional): Topology, Replay, Compare.
-- **Rationale:** Core value is Request Explorer → Waterfall → Context Panel. Everything else is additive.
-- **Impact:** All workstreams — focus on core before Tier 3 features
-- **Status:** Documented
-
-### D-008: Dark-Only Design
-
-- **Date:** September 6, 2026
-- **Source:** `planning/05-pre-development-audit.md` (UI Freeze)
-- **Decision:** Dark theme only. No light mode. No dark mode toggle.
-- **Rationale:** Simplifies UI implementation; matches developer tool aesthetic
-- **Impact:** Workstream 3 (frontend styling)
-- **Status:** Documented
+> **Status:** RESOLVED — ready to broadcast to team
+> **Source:** dev5 §6, planning/05-pre-development-audit.md
 
 ---
 
-## Notable Exclusions
+## Resolved Decisions (Must Broadcast Before Coding)
 
-The following were explicitly removed by the pre-development audit:
+### D-001: OTLP HTTP, Not gRPC
 
-- Incident Timeline
-- Dark mode toggle
-- Latency budget breakdown
-- Export/share trace
-- Service health overview
-- Production architecture views
+- **Issue:** Blueprint originally proposed gRPC receiver inside DevTools server. Audit rejected as too complex.
+- **Resolution:** Use OTLP HTTP. Dev 2 exposes a plain HTTP endpoint. Dev 1's Collector exports via `otlphttp`.
+- **Affects:** Dev 1 (Collector config), Dev 2 (HTTP receiver)
+- **Action:** Confirm exact endpoint path with Dev 2 before broadcasting.
+- **Status:** ⬜ Awaiting Dev 2's confirmation of path
+
+### D-002: Separate Collector Container
+
+- **Issue:** Blueprint §15.3 says Collector runs embedded; Docker Compose and backlog assume separate container.
+- **Resolution:** Separate container. Matches what Dev 1 and Dev 4 are building.
+- **Affects:** Dev 1, Dev 4
+- **Status:** ✅ Resolved — separate container
+
+### D-003: Body Capture via Shared Middleware
+
+- **Issue:** OTel auto-instrumentation does NOT capture request/response bodies. Overview tab would be empty.
+- **Resolution:** Dev 1 builds shared Express middleware setting `custom.http.request.body` / `custom.http.response.body` span attributes. Dev 2 reads these exact attribute names in OTLP receiver transform.
+- **Affects:** Dev 1 (sets attributes), Dev 2 (reads attributes)
+- **Status:** ⬜ Awaiting confirmation of exact attribute names between Dev 1 and Dev 2
+
+### D-004: Console.log Monkey-Patch for Log Correlation
+
+- **Issue:** Raw `console.log` has no trace context. Logs tab would be empty.
+- **Resolution:** Dev 1's `createLogger` (or monkey-patch) injects `trace_id`/`span_id` into every log line. All services must use it.
+- **Affects:** Dev 1 (implements), Dev 2 (ingests logs), Dev 3 (renders Logs tab)
+- **Status:** ✅ Resolved — Dev 1 implements, all services consume
+
+### D-005: WebSocket Payload = REST Response Shape
+
+- **Issue:** If `new_request` WS event differs from `GET /api/v1/requests` item shape, frontend breaks.
+- **Resolution:** Both must be identical. Codified as `RequestSummary` type in `packages/shared`. Everyone imports from there.
+- **Affects:** Dev 2 (emits both), Dev 3 (consumes both)
+- **Status:** ✅ Resolved — single type in `packages/shared`
+
+### D-006: Single-Port Frontend Serving
+
+- **Issue:** Blueprint's Docker Compose has separate frontend container on port 4002. But D-13 says Dev 2 serves static files on port 4001.
+- **Resolution:** Dev 2 serves built React app at `/` on port 4001 (single port, no CORS). Port 4002 is reserved for Dev 4's e-commerce demo frontend (`S-09`).
+- **Affects:** Dev 2 (serves), Dev 3 (builds), Dev 4 (port 4002 is theirs)
+- **Status:** ✅ Resolved — confirm with Dev 2 and Dev 4
+
+---
+
+## Decisions Already Made by Audit (No Action Needed)
+
+These are frozen by `planning/05-pre-development-audit.md` and all devs must follow them:
+
+1. **MVP Tier 1:** Request Explorer + Waterfall + Overview + telemetry ingestion
+2. **MVP Tier 2:** WebSocket updates, Logs, DB Queries, External APIs, Command Palette
+3. **MVP Tier 3 (optional):** Topology, Replay, Compare
+4. **Not built:** Incident Timeline, dark mode toggle, latency budget, export/share, service health overview, production architecture
+5. **Dark-only design:** No light mode toggle
+6. **Replay is "re-send the same HTTP request"** — not deterministic reproduction
+7. **Topology is post-hoc derived** from stored spans, not live
+8. **Feature freeze at T-4h, code freeze at T-2h**
+
+---
+
+## Pending Decisions (Awaiting Team Input)
+
+| # | Decision | Waiting On | Deadline |
+|---|----------|------------|----------|
+| P-1 | OTLP endpoint exact path (`/v1/traces` or `/otlp/v1/traces`?) | Dev 2 | Day 1 |
+| P-2 | Body capture attribute exact names | Dev 1 + Dev 2 | Day 1 |
+| P-3 | Redis span attribute shape (what does `@opentelemetry/instrumentation-redis` actually emit?) | Dev 1 (Day 1 test) | Day 1 |
+| P-4 | Deterministic replay-mode flag for WireMock? (audit recommends, optional) | Dev 4 + Dev 2 | Day 2 |
+| P-5 | Dev 3's build output directory for static serving | Dev 3 → Dev 2 | Day 3 |

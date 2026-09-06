@@ -1,58 +1,33 @@
-# Tasks
+# Tasks — Dev 5 (Abhinav) — Full Breakdown
 
-> **Developer:** Integration Engineer (Workstream 5)
+> **Last Updated:** September 6, 2026
+> **Status:** All independent work complete. Waiting for team.
 
 ---
 
-## Phase 0: Bootstrap
+## Phase 0 — Unblocking
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| T-001 | Read planning documents | ✅ Done | All five read and analyzed |
-| T-002 | Create directory structure | ✅ Done | All directories created |
-| T-003 | Create .agents/ rules | ✅ Done | AGENTS.md, STANDARDS.md, WORKFLOW.md |
-| T-004 | Create role files | ✅ Done | Five role files created |
-| T-005 | Create shared contracts | ✅ Done | All five contracts defined |
-| T-006 | Initialize .ai/ state | ✅ Done | All state files created |
-| T-007 | Create docs/INITIALIZATION.md | 🔄 In Progress | — |
-| T-008 | Create README.md | ⬜ Pending | — |
-| T-009 | Create docker-compose.yml scaffold | ⬜ Pending | — |
-| T-010 | Create graphify-out/ placeholder | ⬜ Pending | — |
-| T-011 | Final validation | ⬜ Pending | — |
+| 0.1 | Publish `packages/shared` types | ✅ DONE | 16 types, build passes |
+| 0.2 | Resolve 6 architecture decisions | ✅ DONE | `.ai/DECISIONS.md` |
+| 0.3 | Confirm OTLP path with Dev 2 | ⬜ Waiting | — |
+| 0.4 | Confirm body-capture attr names | ⬜ Waiting | — |
+| 0.5 | Confirm static serving approach | ⬜ Waiting | — |
 
-## Phase 1: Contract Validation (Future)
+## Phase 0 — Independent Implementation
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| T-020 | Validate telemetry contract compliance | ⬜ Pending | Wait for Workstream 1 |
-| T-021 | Validate API contract compliance | ⬜ Pending | Wait for Workstream 2 |
-| T-022 | Validate WebSocket event contract compliance | ⬜ Pending | Wait for Workstream 2 |
-| T-023 | Validate data model compliance | ⬜ Pending | Wait for Workstream 2 |
+| 0-A | DevTools DB schema SQL | ✅ DONE | `db/devtools/001_initial.sql` |
+| 0-B | Ecommerce DB schema SQL | ✅ DONE | `db/ecommerce/001_initial.sql` |
+| 0-C | OTLP mock payloads (4) | ✅ DONE | `tests/fixtures/` |
+| 0-D | API contract tests | ✅ DONE | `tests/contract/api-shapes.test.ts` |
+| 0-E | Failure scenario tests | ✅ DONE | `tests/contract/failure-scenarios.test.ts` |
+| 0-F | Makefile draft | ✅ DONE | `Makefile` |
+| 0-G | Docker Compose refined | ✅ DONE | `docker-compose.yml` |
+| 0-H | Pipeline validation script | ✅ DONE | `scripts/validate-pipeline.sh` |
 
-## Phase 2: Integration Testing (Future)
+## Phase 1-8 — Remaining
 
-| ID | Task | Status | Notes |
-|----|------|--------|-------|
-| T-030 | Telemetry → Collector → Core pipeline test | ⬜ Pending | — |
-| T-031 | Core → Frontend API integration test | ⬜ Pending | — |
-| T-032 | WebSocket live update integration test | ⬜ Pending | — |
-| T-033 | Demo service → Telemetry integration test | ⬜ Pending | — |
-
-## Phase 3: E2E Testing (Future)
-
-| ID | Task | Status | Notes |
-|----|------|--------|-------|
-| T-040 | Full vertical slice E2E test | ⬜ Pending | — |
-| T-041 | Failure scenario validation | ⬜ Pending | — |
-| T-042 | Seed data validation | ⬜ Pending | — |
-| T-043 | Docker Compose reliability | ⬜ Pending | — |
-
-## Phase 4: Final Validation (Future)
-
-| ID | Task | Status | Notes |
-|----|------|--------|-------|
-| T-050 | API contract validation | ⬜ Pending | — |
-| T-051 | Failure isolation validation | ⬜ Pending | — |
-| T-052 | Performance validation | ⬜ Pending | — |
-| T-053 | Security validation | ⬜ Pending | — |
-| T-054 | Final demo flow validation | ⬜ Pending | — |
+All depend on team implementations. See `.ai/PHASE_PLAN.md` for full details.
