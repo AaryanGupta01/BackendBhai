@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "generated": null,
+  "status": "placeholder",
+  "message": "This file will be populated with the codebase dependency graph after implementation begins.",
+  "nodes": [],
+  "edges": [],
+  "metadata": {
+    "project": "Backend DevTools",
+    "root": ".",
+    "note": "Regenerate after substantial implementation changes"
+  }
+}
