@@ -3,3 +3,6 @@ packages:
   - "apps/*"
   - "apps/demo-store/*"
   - "services/*"
+allowBuilds:
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
