@@ -4,10 +4,10 @@ import { QueryRepository } from '../db/repositories/query-repository.js';
 const repo = new QueryRepository();
 
 export default async function (fastify: FastifyInstance) {
-  fastify.get('/api/v1/requests', async (request, reply) => {
+  fastify.get('/api/v1/requests', async (request: any, reply) => {
     try {
-      const traces = await repo.getRequestsSummary();
-      return reply.send({ data: traces });
+      const result = await repo.getRequestsSummary(request.query || {});
+      return reply.send(result);
     } catch (err) {
       fastify.log.error(err);
       return reply.status(500).send({ error: 'Failed to fetch requests' });

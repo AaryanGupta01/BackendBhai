@@ -8,8 +8,11 @@ describe('Phase 3: Core Read APIs', () => {
 
   beforeAll(async () => {
     vi.spyOn(pool, 'query').mockImplementation((queryText: any) => {
+      if (queryText.includes('SELECT COUNT(*) FROM request_summary')) {
+        return Promise.resolve({ rows: [{ count: '1' }] } as any);
+      }
       if (queryText.includes('FROM request_summary')) {
-        return Promise.resolve({ rows: [{ trace_id: '123' }] } as any);
+        return Promise.resolve({ rows: [{ trace_id: '123', status_code: 200, start_time: '1725345600000', error_count: 0 }] } as any);
       }
       if (queryText.includes('FROM traces WHERE id')) {
         return Promise.resolve({ rows: [{ id: '123', name: 'GET /' }] } as any);
@@ -35,7 +38,10 @@ describe('Phase 3: Core Read APIs', () => {
       url: '/api/v1/requests'
     });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.payload)).toEqual({ data: [{ trace_id: '123' }] });
+    const body = JSON.parse(response.payload);
+    expect(body.data[0].traceId).toBe('123');
+    expect(body.pagination.total).toBe(1);
+    expect(body.pagination.page).toBe(1);
   });
 
   it('GET /api/v1/requests/:id should return trace details', async () => {
