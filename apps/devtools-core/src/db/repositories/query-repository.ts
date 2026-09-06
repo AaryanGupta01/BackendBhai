@@ -96,8 +96,10 @@ export class QueryRepository {
 
     const data = dataRes.rows.map(row => {
       let ts = row.start_time;
-      if (typeof ts === 'string' && /^\\d+$/.test(ts)) {
+      if (typeof ts === 'string' && /^\d+$/.test(ts)) {
          ts = new Date(parseInt(ts, 10)).toISOString();
+      } else if (typeof ts === 'number') {
+         ts = new Date(ts).toISOString();
       } else if (ts instanceof Date) {
          ts = ts.toISOString();
       } else {
@@ -132,18 +134,166 @@ export class QueryRepository {
     };
   }
 
+  private parseJson(val: any) {
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch { return val; }
+    }
+    return val;
+  }
+
+  private toIsoString(val: any) {
+    if (typeof val === 'string' && /^\d+$/.test(val)) return new Date(parseInt(val, 10)).toISOString();
+    if (typeof val === 'number') return new Date(val).toISOString();
+    if (val instanceof Date) return val.toISOString();
+    return new Date(val).toISOString();
+  }
+
   async getTraceById(traceId: string) {
     const traceQuery = `SELECT * FROM traces WHERE id = $1`;
     const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
+    const trace = traceRows[0];
 
     const spanQuery = `SELECT * FROM spans WHERE trace_id = $1 ORDER BY start_time ASC`;
     const { rows: spanRows } = await pool.query(spanQuery, [traceId]);
 
-    const trace = traceRows[0];
+    const logsQuery = `SELECT * FROM log_events WHERE trace_id = $1 ORDER BY timestamp ASC`;
+    const { rows: logRows } = await pool.query(logsQuery, [traceId]);
+
+    const mappedSpans = spanRows.map(span => {
+      const attrs = this.parseJson(span.attributes) || {};
+      return {
+        spanId: span.id,
+        parentSpanId: span.parent_span_id,
+        service: span.service_name,
+        operation: span.operation_name,
+        kind: span.span_type,
+        startTimestamp: this.toIsoString(span.start_time),
+        durationMs: parseInt(span.duration_ms || '0', 10),
+        status: span.status === 'error' ? 'ERROR' : 'OK',
+        statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
+        attributes: attrs
+      };
+    });
+
+    const dbQueries = mappedSpans
+      .filter(s => s.attributes['db.system'])
+      .map(s => ({
+        spanId: s.spanId,
+        service: s.service,
+        operation: s.attributes['db.operation.name'] || 'DB',
+        table: s.attributes['db.sql.table'] || '',
+        statement: s.attributes['db.statement'] || '',
+        durationMs: s.durationMs,
+        status: s.status
+      }));
+
+    const externalCalls = mappedSpans
+      .filter(s => s.kind === 'client' && s.attributes['http.request.method'])
+      .map(s => ({
+        spanId: s.spanId,
+        service: s.service,
+        method: s.attributes['http.request.method'],
+        url: s.attributes['url.full'] || '',
+        statusCode: s.statusCode,
+        durationMs: s.durationMs,
+        status: s.status
+      }));
+
+    const mappedLogs = logRows.map(l => ({
+      timestamp: this.toIsoString(l.timestamp),
+      level: l.level,
+      service: l.service_name,
+      message: l.message,
+      traceId: l.trace_id,
+      spanId: l.span_id || undefined,
+      attributes: this.parseJson(l.attributes) || {}
+    }));
+
     return {
-      trace,
-      spans: spanRows
+      traceId: trace.id,
+      method: trace.method,
+      path: trace.path,
+      statusCode: trace.status_code,
+      durationMs: parseInt(trace.duration_ms || '0', 10),
+      timestamp: this.toIsoString(trace.start_time),
+      rootService: trace.root_service,
+      requestBody: this.parseJson(trace.request_body),
+      responseBody: this.parseJson(trace.response_body),
+      requestHeaders: this.parseJson(trace.request_headers),
+      responseHeaders: this.parseJson(trace.response_headers),
+      spans: mappedSpans,
+      logs: mappedLogs,
+      dbQueries,
+      externalCalls
+    };
+  }
+
+  async getTraceWaterfall(traceId: string) {
+    const traceQuery = `SELECT start_time, duration_ms FROM traces WHERE id = $1`;
+    const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
+    if (traceRows.length === 0) return null;
+
+    const trace = traceRows[0];
+    const traceStart = parseInt(trace.start_time, 10);
+    const traceDuration = parseInt(trace.duration_ms || '0', 10);
+
+    const spanQuery = `SELECT * FROM spans WHERE trace_id = $1 ORDER BY start_time ASC`;
+    const { rows: spanRows } = await pool.query(spanQuery, [traceId]);
+
+    const idToNode = new Map<string, any>();
+    spanRows.forEach(s => {
+      idToNode.set(s.id, { ...s, children: [] });
+    });
+
+    const rootNodes: any[] = [];
+    spanRows.forEach(s => {
+      if (s.parent_span_id && idToNode.has(s.parent_span_id)) {
+        idToNode.get(s.parent_span_id).children.push(idToNode.get(s.id));
+      } else {
+        rootNodes.push(idToNode.get(s.id));
+      }
+    });
+
+    const orderedSpans: any[] = [];
+    let currentOrder = 0;
+
+    function traverse(node: any, depth: number) {
+      node.computedDepth = depth;
+      node.computedOrder = currentOrder++;
+      orderedSpans.push(node);
+      node.children.forEach((c: any) => traverse(c, depth + 1));
+    }
+
+    rootNodes.forEach(r => traverse(r, 0));
+
+    const waterfallSpans = orderedSpans.map(s => {
+      const startOffsetMs = parseInt(s.start_time, 10) - traceStart;
+      const dur = parseInt(s.duration_ms || '0', 10);
+      const attrs = this.parseJson(s.attributes) || {};
+      
+      return {
+        spanId: s.id,
+        parentSpanId: s.parent_span_id,
+        service: s.service_name,
+        operation: s.operation_name,
+        kind: s.span_type,
+        startOffsetMs: Math.max(0, startOffsetMs),
+        durationMs: dur,
+        percentageOfTotal: traceDuration > 0 ? Number(((dur / traceDuration) * 100).toFixed(2)) : 0,
+        depth: s.computedDepth,
+        order: s.computedOrder,
+        status: s.status === 'error' ? 'ERROR' : 'OK',
+        statusCode: attrs['http.response.status_code'] ? parseInt(attrs['http.response.status_code'], 10) : undefined,
+        attributes: attrs
+      };
+    });
+
+    return {
+      traceId,
+      totalDurationMs: traceDuration,
+      startTimestamp: this.toIsoString(traceStart),
+      spans: waterfallSpans
     };
   }
 
@@ -154,7 +304,18 @@ export class QueryRepository {
       ORDER BY timestamp ASC
     `;
     const { rows } = await pool.query(query, [traceId]);
-    return rows;
+    return {
+      traceId,
+      logs: rows.map(l => ({
+        timestamp: this.toIsoString(l.timestamp),
+        level: l.level,
+        service: l.service_name,
+        message: l.message,
+        traceId: l.trace_id,
+        spanId: l.span_id || undefined,
+        attributes: this.parseJson(l.attributes) || {}
+      }))
+    };
   }
 
   async getTopology() {

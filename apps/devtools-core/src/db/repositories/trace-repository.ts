@@ -11,7 +11,7 @@ export class TraceRepository {
     `;
     await pool.query(query, [
       trace.id, trace.name, trace.root_service, trace.start_time, trace.end_time, trace.status, trace.method, trace.path, trace.status_code,
-      trace.request_headers, trace.request_body, trace.response_headers, trace.response_body, trace.response_size, JSON.stringify(trace.services), trace.metadata
+      trace.request_headers, trace.request_body, trace.response_headers, trace.response_body, trace.response_size, trace.services, trace.metadata
     ]);
   }
 
@@ -33,13 +33,41 @@ export class TraceRepository {
   async insertLogEvents(logs: any[]) {
     if (!logs || logs.length === 0) return;
     const query = `
-      INSERT INTO log_events (trace_id, service_name, level, message, attributes, timestamp)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO log_events (trace_id, span_id, service_name, level, message, attributes, timestamp)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (trace_id, span_id, timestamp, message) DO NOTHING
     `;
     for (const log of logs) {
       await pool.query(query, [
-        log.trace_id, log.service_name, log.level, log.message, log.attributes, log.timestamp
+        log.trace_id, log.span_id, log.service_name, log.level, log.message, log.attributes, log.timestamp
       ]);
+    }
+  }
+
+  async upsertServices(serviceNames: string[]) {
+    if (!serviceNames || serviceNames.length === 0) return;
+    const query = `
+      INSERT INTO services (name, last_seen)
+      VALUES ($1, NOW())
+      ON CONFLICT (name) DO UPDATE SET
+        last_seen = EXCLUDED.last_seen,
+        request_count = services.request_count + 1
+    `;
+    for (const name of serviceNames) {
+      await pool.query(query, [name]);
+    }
+  }
+
+  async upsertDependencies(deps: { source: string, target: string, type: string }[]) {
+    if (!deps || deps.length === 0) return;
+    const query = `
+      INSERT INTO service_dependencies (source_service, target_service, dependency_type, request_count)
+      VALUES ($1, $2, $3, 1)
+      ON CONFLICT (source_service, target_service, dependency_type) DO UPDATE SET
+        request_count = service_dependencies.request_count + 1
+    `;
+    for (const dep of deps) {
+      await pool.query(query, [dep.source, dep.target, dep.type]);
     }
   }
 }

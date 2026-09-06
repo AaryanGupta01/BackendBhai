@@ -6,7 +6,7 @@ CREATE TABLE traces (
     root_service    VARCHAR(128) NOT NULL,
     start_time      BIGINT NOT NULL,
     end_time        BIGINT NOT NULL,
-    duration_ms     INTEGER GENERATED ALWAYS AS (end_time - start_time) STORED,
+    duration_ms     BIGINT GENERATED ALWAYS AS (end_time - start_time) STORED,
     status          VARCHAR(16) NOT NULL DEFAULT 'ok',
     method          VARCHAR(16),
     path            VARCHAR(1024),
@@ -16,7 +16,7 @@ CREATE TABLE traces (
     response_headers JSONB DEFAULT '{}',
     response_body   TEXT,
     response_size   INTEGER,
-    services        JSONB DEFAULT '[]',
+    services        TEXT[] DEFAULT '{}',
     metadata        JSONB DEFAULT '{}',
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -40,7 +40,7 @@ CREATE TABLE spans (
     span_type       VARCHAR(32) NOT NULL,
     start_time      BIGINT NOT NULL,
     end_time        BIGINT NOT NULL,
-    duration_ms     INTEGER GENERATED ALWAYS AS (end_time - start_time) STORED,
+    duration_ms     BIGINT GENERATED ALWAYS AS (end_time - start_time) STORED,
     status          VARCHAR(16) NOT NULL DEFAULT 'ok',
     status_message  TEXT,
     attributes      JSONB DEFAULT '{}',
@@ -68,14 +68,17 @@ CREATE INDEX idx_span_events_span_id ON span_events(span_id);
 CREATE TABLE log_events (
     id SERIAL PRIMARY KEY,
     trace_id VARCHAR(64) REFERENCES traces(id) ON DELETE SET NULL,
+    span_id VARCHAR(64),
     service_name VARCHAR(128) NOT NULL,
     "level" VARCHAR(16) NOT NULL,
     message TEXT NOT NULL,
     attributes JSONB DEFAULT '{}',
     "timestamp" BIGINT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(trace_id, span_id, "timestamp", message)
 );
 CREATE INDEX idx_log_events_trace_id ON log_events(trace_id);
+CREATE INDEX idx_log_events_span_id ON log_events(span_id);
 CREATE INDEX idx_log_events_service_name ON log_events(service_name);
 CREATE INDEX idx_log_events_level ON log_events(level);
 CREATE INDEX idx_log_events_timestamp ON log_events("timestamp" DESC);

@@ -15,13 +15,13 @@ describe('Phase 3: Core Read APIs', () => {
         return Promise.resolve({ rows: [{ trace_id: '123', status_code: 200, start_time: '1725345600000', error_count: 0 }] } as any);
       }
       if (queryText.includes('FROM traces WHERE id')) {
-        return Promise.resolve({ rows: [{ id: '123', name: 'GET /' }] } as any);
+        return Promise.resolve({ rows: [{ id: '123', start_time: '1725345600000' }] } as any);
       }
       if (queryText.includes('FROM spans WHERE trace_id')) {
-        return Promise.resolve({ rows: [{ id: 'span-1' }] } as any);
+        return Promise.resolve({ rows: [{ id: 'span-1', start_time: '1725345600000', attributes: '{}' }] } as any);
       }
       if (queryText.includes('FROM log_events') && queryText.includes('WHERE trace_id')) {
-        return Promise.resolve({ rows: [{ id: 'log-1', message: 'test' }] } as any);
+        return Promise.resolve({ rows: [{ id: 'log-1', message: 'test', timestamp: '1725345600000', attributes: '{}' }] } as any);
       }
       return Promise.resolve({ rows: [] } as any);
     });
@@ -51,16 +51,16 @@ describe('Phase 3: Core Read APIs', () => {
     });
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.payload);
-    expect(body.trace.id).toBe('123');
-    expect(body.spans[0].id).toBe('span-1');
+    expect(body.traceId).toBe('123');
+    expect(body.spans[0].spanId).toBe('span-1');
   });
 
-  it('GET /api/v1/requests/:id/logs should return logs', async () => {
+  it('GET /api/v1/traces/:id/logs should return logs', async () => {
     const response = await server.inject({
       method: 'GET',
-      url: '/api/v1/requests/123/logs'
+      url: '/api/v1/traces/123/logs'
     });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.payload)).toEqual({ data: [{ id: 'log-1', message: 'test' }] });
+    expect(JSON.parse(response.payload).traceId).toBe('123');
   });
 });

@@ -4,10 +4,10 @@ import { OtlpReceiver } from '../services/otlp-receiver.js';
 const receiver = new OtlpReceiver();
 
 export default async function (fastify: FastifyInstance) {
-  fastify.post('/v1/traces', async (request, reply) => {
+  fastify.post('/api/v1/telemetry/traces', async (request, reply) => {
     try {
       const payload = request.body;
-      await receiver.processSyntheticTrace(payload);
+      await receiver.processOtlpTraces(payload);
       return reply.send({ partialSuccess: null });
     } catch (err) {
       fastify.log.error(err);

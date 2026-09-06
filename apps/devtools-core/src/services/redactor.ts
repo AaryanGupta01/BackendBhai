@@ -1,6 +1,23 @@
 const SENSITIVE_HEADERS = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
 const SENSITIVE_BODY_FIELDS = ['password', 'token', 'secret', 'credit_card', 'ssn'];
 
+function redactRecursive(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => redactRecursive(item));
+  } else if (obj !== null && typeof obj === 'object') {
+    const redacted: any = {};
+    for (const key of Object.keys(obj)) {
+      if (SENSITIVE_BODY_FIELDS.some(f => key.toLowerCase().includes(f))) {
+        redacted[key] = '***';
+      } else {
+        redacted[key] = redactRecursive(obj[key]);
+      }
+    }
+    return redacted;
+  }
+  return obj;
+}
+
 export function redactSpanAttributes(attributes: Record<string, any>): Record<string, any> {
   if (!attributes) return {};
   const redacted = { ...attributes };
@@ -10,17 +27,8 @@ export function redactSpanAttributes(attributes: Record<string, any>): Record<st
     }
     if (key.includes('body') && typeof redacted[key] === 'string') {
       try {
-        const body = JSON.parse(redacted[key]);
-        let modified = false;
-        for (const field of SENSITIVE_BODY_FIELDS) {
-          if (body[field]) {
-            body[field] = '***';
-            modified = true;
-          }
-        }
-        if (modified) {
-          redacted[key] = JSON.stringify(body);
-        }
+        const parsed = JSON.parse(redacted[key]);
+        redacted[key] = JSON.stringify(redactRecursive(parsed));
       } catch { /* not JSON, leave as-is */ }
     }
   }
@@ -42,14 +50,7 @@ export function redactBody(bodyStr: string | undefined | null): string | undefin
   if (!bodyStr) return bodyStr;
   try {
     const body = JSON.parse(bodyStr);
-    let modified = false;
-    for (const field of SENSITIVE_BODY_FIELDS) {
-      if (body[field]) {
-        body[field] = '***';
-        modified = true;
-      }
-    }
-    return modified ? JSON.stringify(body) : bodyStr;
+    return JSON.stringify(redactRecursive(body));
   } catch {
     return bodyStr;
   }
