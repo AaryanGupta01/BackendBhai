@@ -1,0 +1,115 @@
+.gaugeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
+}
+
+.gaugeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.dotSep {
+  color: var(--dim);
+}
+
+.totalDur {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sub);
+}
+
+.culpritCallout {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+.flameIcon {
+  font-size: 11px;
+}
+
+.culpritName {
+  font-family: 'JetBrains Mono', monospace;
+  color: #ef4444;
+}
+
+.barTrack {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  gap: 2px;
+}
+
+.segment {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.culpritSegment {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  animation: laser-glow 2s infinite ease-in-out;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+}
+
+.legendDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendName {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--sub);
+}
+
+.legendPct {
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.legendDur {
+  color: var(--dim);
+  font-family: 'JetBrains Mono', monospace;
+}

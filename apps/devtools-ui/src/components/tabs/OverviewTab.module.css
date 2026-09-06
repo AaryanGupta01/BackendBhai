@@ -1,0 +1,43 @@
+.wrap {
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+
+.jsonBlock {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--sub);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.jsonErr {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}

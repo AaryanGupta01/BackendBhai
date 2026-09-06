@@ -1,0 +1,165 @@
+.top {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  height: 42px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.logoMark {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logoName {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.logoName strong {
+  color: #818cf8;
+}
+
+.logoBadge {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 3px;
+  padding: 1px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.healthStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.healthChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  color: var(--sub);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.wsDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: blink 2s infinite;
+}
+
+.errorChip {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.errorChip strong {
+  color: #ef4444;
+}
+
+.errorIcon {
+  font-size: 10px;
+}
+
+.degradedChip {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.degradedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchTrigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--sub);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+  font-family: inherit;
+}
+
+.searchTrigger:hover {
+  border-color: var(--hi);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.kbd {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  padding: 1px 4px;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--dim);
+}
+
+.envChip {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

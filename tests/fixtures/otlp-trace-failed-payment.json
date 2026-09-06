@@ -1,0 +1,88 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "api-gateway" } }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "@opentelemetry/instrumentation-express" },
+          "spans": [
+            {
+              "traceId": "aabbccdd11223344aabbccdd11223344",
+              "spanId": "1111111111111111",
+              "parentSpanId": null,
+              "name": "POST /api/orders",
+              "kind": 1,
+              "startTimeUnixNano": "1725345700000000000",
+              "endTimeUnixNano": "1725345702500000000",
+              "status": { "code": 2, "description": "503 Service Unavailable" },
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                { "key": "http.status_code", "value": { "intValue": 503 } }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "payment-service" } }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "@opentelemetry/instrumentation-express" },
+          "spans": [
+            {
+              "traceId": "aabbccdd11223344aabbccdd11223344",
+              "spanId": "2222222222222222",
+              "parentSpanId": "1111111111111111",
+              "name": "POST /payments",
+              "kind": 1,
+              "startTimeUnixNano": "1725345700100000000",
+              "endTimeUnixNano": "1725345702400000000",
+              "status": { "code": 2, "description": "503 Service Unavailable" },
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                { "key": "http.status_code", "value": { "intValue": 503 } }
+              ],
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1725345702400000000",
+                  "attributes": [
+                    { "key": "exception.type", "value": { "stringValue": "Error" } },
+                    { "key": "exception.message", "value": { "stringValue": "Payment service returned 503" } }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "aabbccdd11223344aabbccdd11223344",
+              "spanId": "3333333333333333",
+              "parentSpanId": "2222222222222222",
+              "name": "POST http://mock-payment-api:4000/charges",
+              "kind": 2,
+              "startTimeUnixNano": "1725345700110000000",
+              "endTimeUnixNano": "1725345702390000000",
+              "status": { "code": 2, "description": "503 Service Unavailable" },
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                { "key": "http.url", "value": { "stringValue": "http://mock-payment-api:4000/charges" } },
+                { "key": "http.status_code", "value": { "intValue": 503 } },
+                { "key": "server.address", "value": { "stringValue": "mock-payment-api" } }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
