@@ -1,7 +1,7 @@
-# Backend DevTools — Agent Development Rules
+# BackendBhai — Agent Development Rules
 
 > **Last Updated:** September 6, 2026
-> **Project:** Backend DevTools — "Chrome DevTools for backend systems"
+> **Project:** BackendBhai — "Chrome DevTools for backend systems"
 > **Source of Truth:** `planning/` directory
 
 ---

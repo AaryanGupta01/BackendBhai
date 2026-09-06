@@ -1,4 +1,4 @@
-# Backend DevTools — Docker Compose
+# BackendBhai — Docker Compose
 #
 # ⚠️  SCAFFOLD ONLY — This file defines the intended service topology.
 #     Implementation details (build contexts, environment variables, health checks)

@@ -1,14 +1,14 @@
-# Backend DevTools
+# BackendBhai
 
 > **Chrome DevTools for backend systems.**
 
-Backend DevTools is a browser-based developer tool that presents one backend request as a complete interactive execution story — showing every service, database query, external API call, and log entry for a single request in a single view.
+BackendBhai is a browser-based developer tool that presents one backend request as a complete interactive execution story — showing every service, database query, external API call, and log entry for a single request in a single view.
 
 ---
 
 ## Project Goal
 
-Backend developers lack a browser-based, request-centric debugging tool. When a bug is reported, they switch between 6+ disconnected tools (logs, databases, API clients, tracing UIs) to understand what happened in one request. Backend DevTools unifies this into a single, beautiful, Chrome DevTools-like experience.
+Backend developers lack a browser-based, request-centric debugging tool. When a bug is reported, they switch between 6+ disconnected tools (logs, databases, API clients, tracing UIs) to understand what happened in one request. BackendBhai unifies this into a single, beautiful, Chrome DevTools-like experience.
 
 ---
 

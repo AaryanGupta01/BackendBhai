@@ -1,4 +1,4 @@
-# Backend DevTools — WebSocket Event Contract
+# BackendBhai — WebSocket Event Contract
 
 > **Owner:** Workstream 2 (Core Platform) · Workstream 5 (Integration)
 > **WebSocket URL:** `ws://localhost:4001/ws`

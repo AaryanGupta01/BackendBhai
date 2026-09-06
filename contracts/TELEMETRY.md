@@ -1,4 +1,4 @@
-# Backend DevTools — Telemetry Contract
+# BackendBhai — Telemetry Contract
 
 > **Owner:** Workstream 1 (Telemetry) · Workstream 5 (Integration)
 > **Standard:** OpenTelemetry
