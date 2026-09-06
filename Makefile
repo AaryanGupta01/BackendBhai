@@ -57,9 +57,10 @@ demo: ## One command: fresh stack + seeded data, ready to present
 	$(MAKE) seed
 	@echo ""
 	@echo "✅ BackendBhai is ready!"
-	@echo "   DevTools UI:  http://localhost:4001"
-	@echo "   E-commerce:   http://localhost:4002"
-	@echo "   API Gateway:  http://localhost:3000"
+	@echo "   DevTools UI:       http://localhost:4001"
+	@echo "   Error Injector UI: http://localhost:4002"
+	@echo "   Amazon Storefront: http://localhost:4003"
+	@echo "   API Gateway:       http://localhost:3000"
 	@echo ""
 
 # ─── Testing ─────────────────────────────────────────────────────────
