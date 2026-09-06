@@ -1,39 +1,36 @@
 # BackendBhai — Docker Compose
-# Source: dev1.md §6.8, dev2.md, dev4.md §6.2
-# Author: Dev 5 (Abhinav) — refined from scaffold with real service blocks
-#
-# Architecture:
-#   React SPA → REST + WebSocket → DevTools Server (Fastify) → PostgreSQL
-#                                           ↑
-#   OTel Collector → OTLP HTTP → DevTools Server
-#                                           ↑
-#   Simulated Backend → OTLP gRPC → OTel Collector
+# Architecture & Orchestration for all 5 Workstreams + Amazon Storefront
+
+version: '3.8'
 
 services:
   # ─────────────────────────────────────────────
-  # Infrastructure
+  # Shared Infrastructure
   # ─────────────────────────────────────────────
 
   postgres:
     image: postgres:16-alpine
+    container_name: backendbhai-postgres
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: ecommerce
+      POSTGRES_DB: devtools
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/devtools/001_initial.sql:/docker-entrypoint-initdb.d/01-devtools.sql
-      - ./db/ecommerce/001_initial.sql:/docker-entrypoint-initdb.d/02-ecommerce.sql
+      - ./infrastructure/db/init.sh:/docker-entrypoint-initdb.d/000_init_databases.sh
+      - ./infrastructure/db/devtools:/docker-entrypoint-initdb.d/devtools
+      - ./infrastructure/db/ecommerce:/docker-entrypoint-initdb.d/ecommerce
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app"]
+      test: ["CMD-SHELL", "pg_isready -U app -d devtools && pg_isready -U app -d ecommerce"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
+    container_name: backendbhai-redis
     ports:
       - "6379:6379"
     healthcheck:
@@ -43,13 +40,14 @@ services:
       retries: 5
 
   # ─────────────────────────────────────────────
-  # Telemetry Layer
+  # Telemetry Layer (Workstream 1)
   # ─────────────────────────────────────────────
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
+    container_name: backendbhai-otel-collector
     ports:
-      - "4317:4317"   # OTLP gRPC receiver (from simulated services)
+      - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
     volumes:
       - ./infrastructure/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
@@ -58,13 +56,15 @@ services:
         condition: service_healthy
 
   # ─────────────────────────────────────────────
-  # DevTools Core (Workstream 2)
+  # DevTools Server & UI (Workstream 2 & 3)
+  # Per D-13: UI served directly by devtools-core on port 4001
   # ─────────────────────────────────────────────
 
   devtools-core:
     build:
       context: .
       dockerfile: apps/devtools-core/Dockerfile
+    container_name: backendbhai-devtools-core
     ports:
       - "4001:4001"
     environment:
@@ -72,6 +72,7 @@ services:
       REDIS_URL: redis://redis:6379
       OTEL_COLLECTOR_URL: http://otel-collector:4317
       SIMULATED_BACKEND_URL: http://api-gateway:3000
+      PORT: 4001
       NODE_ENV: development
     depends_on:
       postgres:
@@ -82,17 +83,19 @@ services:
         condition: service_started
 
   # ─────────────────────────────────────────────
-  # Simulated Backend (Workstream 1 + 4)
+  # Simulated Backend Microservices (Workstream 4)
   # ─────────────────────────────────────────────
 
   api-gateway:
     build:
       context: .
-      dockerfile: services/api-gateway/Dockerfile
+      dockerfile: apps/demo-store/api-gateway/Dockerfile
+    container_name: backendbhai-api-gateway
     ports:
       - "3000:3000"
     environment:
       SERVICE_NAME: api-gateway
+      PORT: 3000
       AUTH_SERVICE_URL: http://auth-service:3001
       ORDER_SERVICE_URL: http://order-service:3002
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
@@ -104,11 +107,13 @@ services:
   auth-service:
     build:
       context: .
-      dockerfile: services/auth-service/Dockerfile
+      dockerfile: apps/demo-store/auth-service/Dockerfile
+    container_name: backendbhai-auth-service
     ports:
       - "3001:3001"
     environment:
       SERVICE_NAME: auth-service
+      PORT: 3001
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     depends_on:
       - otel-collector
@@ -116,11 +121,13 @@ services:
   order-service:
     build:
       context: .
-      dockerfile: services/order-service/Dockerfile
+      dockerfile: apps/demo-store/order-service/Dockerfile
+    container_name: backendbhai-order-service
     ports:
       - "3002:3002"
     environment:
       SERVICE_NAME: order-service
+      PORT: 3002
       DATABASE_URL: postgresql://app:secret@postgres:5432/ecommerce
       REDIS_URL: redis://redis:6379
       PAYMENT_SERVICE_URL: http://payment-service:3003
@@ -138,55 +145,65 @@ services:
   payment-service:
     build:
       context: .
-      dockerfile: services/payment-service/Dockerfile
+      dockerfile: apps/demo-store/payment-service/Dockerfile
+    container_name: backendbhai-payment-service
     ports:
       - "3003:3003"
     environment:
       SERVICE_NAME: payment-service
-      MOCK_PAYMENT_API_URL: http://mock-payment-api:4000
+      PORT: 3003
+      MOCK_PAYMENT_URL: http://mock-payment-api:4000
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     depends_on:
-      mock-payment-api:
-        condition: service_started
-      otel-collector:
-        condition: service_started
+      - mock-payment-api
+      - otel-collector
 
   mock-payment-api:
-    image: wiremock/wiremock:3x
+    build:
+      context: .
+      dockerfile: apps/demo-store/mock-payment-api/Dockerfile
+    container_name: backendbhai-mock-payment-api
     ports:
-      - "4000:8080"
+      - "4000:4000"
+    environment:
+      PORT: 4000
     volumes:
       - ./mocks/payment-api:/home/wiremock
-    command: ["--global-response-templating"]
 
   # ─────────────────────────────────────────────
-  # E-Commerce Demo Frontend (Workstream 4)
+  # Master Error Injector Dashboard (:4002)
   # ─────────────────────────────────────────────
 
   demo-frontend:
     build:
       context: .
-      dockerfile: services/frontend/Dockerfile
+      dockerfile: apps/demo-store/frontend/Dockerfile
+    container_name: backendbhai-demo-frontend
     ports:
       - "4002:4002"
     environment:
+      PORT: 4002
+      API_GATEWAY_URL: http://localhost:3000
+    depends_on:
+      - api-gateway
+
+  # ─────────────────────────────────────────────
+  # Amazon-Inspired Storefront (:4003)
+  # Dynamic checkout state controlled by Master Error Injector
+  # ─────────────────────────────────────────────
+
+  amazon-store:
+    build:
+      context: .
+      dockerfile: apps/demo-store/amazon-store/Dockerfile
+    container_name: backendbhai-amazon-store
+    ports:
+      - "4003:4003"
+    environment:
+      PORT: 4003
       API_GATEWAY_URL: http://localhost:3000
     depends_on:
       - api-gateway
 
 volumes:
   postgres_data:
-
-# ─────────────────────────────────────────────
-# Port Map
-# ─────────────────────────────────────────────
-# 4001 — DevTools UI + API (single port, dev2 serves React at /)
-# 4002 — E-commerce demo frontend (dev4)
-# 3000 — API Gateway (dev1)
-# 3001 — Auth Service (dev1)
-# 3002 — Order Service (dev1)
-# 3003 — Payment Service (dev1)
-# 4000 — Mock Payment API / WireMock (dev4)
-# 5432 — PostgreSQL (dev4)
-# 6379 — Redis (dev4)
-# 4317 — OTel Collector gRPC (dev1/infrastructure)
