@@ -168,12 +168,12 @@ export default function App() {
               {/* Request Header */}
               <div className="px-6 py-4 bg-white border-b border-slate-200 shrink-0">
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded text-xs font-bold border ${getMethodColor(detail.method || selectedApi.m)}`}>
-                    {detail.method || selectedApi.m}
+                  <span className={`px-3 py-1 rounded text-xs font-bold border ${getMethodColor(detail.method ?? selectedApi.m)}`}>
+                    {detail.method ?? selectedApi.m}
                   </span>
                   <span className="text-lg font-mono font-semibold text-slate-800">{detail.path || selectedApi.p}</span>
-                  <span className={`text-sm font-bold ${getStatusColor(detail.statusCode || selectedApi.s)}`}>
-                    {detail.statusCode || selectedApi.s}
+                  <span className={`text-sm font-bold ${getStatusColor(detail.statusCode ?? selectedApi.s)}`}>
+                    {detail.statusCode ?? selectedApi.s}
                   </span>
                   <span className="text-xs text-slate-400 ml-auto font-mono">{detail.durationMs || selectedApi.d}ms</span>
                 </div>
@@ -286,13 +286,13 @@ export default function App() {
                     {detail.requestBody && (
                       <div className="mb-3">
                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Request Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{detail.requestBody}</pre>
+                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{typeof detail.requestBody === 'string' ? detail.requestBody : JSON.stringify(detail.requestBody, null, 2)}</pre>
                       </div>
                     )}
                     {detail.responseBody && (
                       <div>
                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Response Body</div>
-                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{detail.responseBody}</pre>
+                        <pre className="text-xs font-mono bg-slate-50 p-2 rounded text-slate-700 overflow-x-auto whitespace-pre-wrap">{typeof detail.responseBody === 'string' ? detail.responseBody : JSON.stringify(detail.responseBody, null, 2)}</pre>
                       </div>
                     )}
                   </div>
