@@ -1,137 +1,177 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Globe, Server, Shield, Box, Database, CreditCard } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Globe, Server, Shield, Box, Database, CreditCard, Layers } from 'lucide-react';
+import {
+  fetchTopology,
+  fetchTracePath,
+  TopologyEdge,
+  TopologyNode,
+  TracePathStep
+} from '../api/client';
 
-export interface ApiTelemetryEvent {
-  id: string;
-  endpoint: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  statusCode: number;
-  durationMs: number;
-  sourceService?: string;
-  targetService: string;
-  timestamp: number;
-  stackTrace?: string;
-}
-
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: 'client' | 'gateway' | 'service' | 'cache' | 'database' | 'external';
-  layer: number;
-  x: number;
-  y: number;
-  status: 'healthy' | 'error' | 'idle';
-  lastLatencyMs?: number;
-  icon: any;
-}
-
-export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  status: 'healthy' | 'error';
-  isFlowing: boolean;
-  latencyMs: number;
-}
-
-const getServiceMeta = (name: string) => {
-  const n = name.toLowerCase();
-  if (n === 'client') return { type: 'client' as const, layer: 0, icon: Globe };
-  if (n.includes('gateway')) return { type: 'gateway' as const, layer: 1, icon: Server };
-  if (n.includes('redis') || n.includes('cache')) return { type: 'cache' as const, layer: 3, icon: Database };
-  if (n.includes('postgres') || n.includes('db')) return { type: 'database' as const, layer: 3, icon: Database };
-  if (n.includes('payment') && n.includes('mock')) return { type: 'external' as const, layer: 3, icon: CreditCard };
-  if (n.includes('auth')) return { type: 'service' as const, layer: 2, icon: Shield };
-  if (n.includes('order')) return { type: 'service' as const, layer: 2, icon: Box };
-  return { type: 'service' as const, layer: 2, icon: Server };
+// Presentation only: which glyph represents each telemetry-derived kind. The kind
+// itself comes from span attributes at ingest, so no service name is interpreted here.
+const KIND_ICONS: Record<string, any> = {
+  gateway: Server,
+  service: Box,
+  database: Database,
+  cache: Layers,
+  queue: Layers,
+  external: CreditCard,
+  client: Globe
 };
 
+const FALLBACK_ICON = Shield;
+
+// Layout constants. These are presentation, not data.
+const X_SPACING = 260;
+const Y_SPACING = 150;
+const BASE_X = 150;
+const CENTER_Y = 330;
+
+export interface GraphNode extends TopologyNode {
+  x: number;
+  y: number;
+  layer: number;
+  icon: any;
+  /** Populated only while a trace is selected. */
+  traceTotalMs?: number;
+  traceSelfMs?: number;
+  traceStatus?: 'ok' | 'error';
+}
+
+export interface GraphEdge extends TopologyEdge {
+  id: string;
+  /** True when this edge took part in the currently selected trace. */
+  inSelectedTrace: boolean;
+  status: 'healthy' | 'error';
+}
+
+/**
+ * Assigns a depth to every node from the shape of the graph: nodes nothing calls sit
+ * at layer 0, and each edge pushes its target one layer right. Cycles are tolerated by
+ * refusing to revisit a node, so a call loop cannot spin forever.
+ */
+function computeLayers(nodes: TopologyNode[], edges: TopologyEdge[]): Record<string, number> {
+  const ids = new Set(nodes.map((n) => n.id));
+  const incoming = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+
+  ids.forEach((id) => {
+    incoming.set(id, 0);
+    outgoing.set(id, []);
+  });
+  for (const e of edges) {
+    if (!ids.has(e.source) || !ids.has(e.target)) continue;
+    incoming.set(e.target, (incoming.get(e.target) || 0) + 1);
+    outgoing.get(e.source)!.push(e.target);
+  }
+
+  const layer: Record<string, number> = {};
+  const roots = Array.from(ids).filter((id) => (incoming.get(id) || 0) === 0);
+  // A fully cyclic graph has no root; fall back to the first node so nothing is dropped.
+  const queue = roots.length > 0 ? roots : Array.from(ids).slice(0, 1);
+  queue.forEach((id) => (layer[id] = 0));
+
+  const visited = new Set(queue);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const next of outgoing.get(current) || []) {
+      const candidate = (layer[current] ?? 0) + 1;
+      if (layer[next] === undefined || candidate > layer[next]) layer[next] = candidate;
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push(next);
+      }
+    }
+  }
+
+  // Anything unreachable (observed only as an isolated node) still needs a position.
+  ids.forEach((id) => {
+    if (layer[id] === undefined) layer[id] = 0;
+  });
+  return layer;
+}
+
 export function useDynamicTopology() {
-  const [nodesMap, setNodesMap] = useState<Record<string, GraphNode>>({});
-  const [edgesMap, setEdgesMap] = useState<Record<string, GraphEdge>>({});
+  const [snapshot, setSnapshot] = useState<{ nodes: TopologyNode[]; edges: TopologyEdge[] }>({
+    nodes: [],
+    edges: []
+  });
+  const [tracePath, setTracePath] = useState<TracePathStep[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const processEvent = useCallback((event: ApiTelemetryEvent) => {
-    const source = event.sourceService || 'client';
-    const target = event.targetService;
-    const isError = event.statusCode >= 400;
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setSnapshot(await fetchTopology());
+    } catch (err: any) {
+      setError(err?.message || 'Could not load topology');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    setNodesMap(prev => {
-      const next = { ...prev };
-      
-      if (!next[source]) {
-        const meta = getServiceMeta(source);
-        next[source] = {
-          id: source, label: source, type: meta.type, layer: meta.layer, icon: meta.icon,
-          x: 0, y: 0, status: 'healthy'
-        };
-      }
-      
-      if (!next[target]) {
-        const meta = getServiceMeta(target);
-        next[target] = {
-          id: target, label: target, type: meta.type, layer: meta.layer, icon: meta.icon,
-          x: 0, y: 0, status: isError ? 'error' : 'healthy', lastLatencyMs: event.durationMs
-        };
-      } else if (event.durationMs > 0) { // Only update if it's a real event, not static init
-        next[target] = {
-          ...next[target],
-          lastLatencyMs: event.durationMs
-        };
-      }
-      return next;
-    });
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
-    setEdgesMap(prev => {
-      const edgeId = `${source}->${target}`;
-      const existing = prev[edgeId];
-      return {
-        ...prev,
-        [edgeId]: {
-          id: edgeId,
-          source,
-          target,
-          status: existing ? existing.status : (isError ? 'error' : 'healthy'),
-          isFlowing: false,
-          latencyMs: event.durationMs
-        }
-      };
-    });
+  const selectTrace = useCallback(async (traceId: string | null) => {
+    if (!traceId) {
+      setTracePath(null);
+      return;
+    }
+    try {
+      const result = await fetchTracePath(traceId);
+      setTracePath(result.path);
+    } catch {
+      // A trace whose spans have not landed yet simply has no overlay.
+      setTracePath(null);
+    }
   }, []);
 
   const { nodes, edges } = useMemo(() => {
-    const nodesList = Object.values(nodesMap);
-    const edgesList = Object.values(edgesMap);
-
-    const layers: Record<number, GraphNode[]> = {};
-    nodesList.forEach(n => {
-      if (!layers[n.layer]) layers[n.layer] = [];
-      layers[n.layer].push(n);
+    const layers = computeLayers(snapshot.nodes, snapshot.edges);
+    const byLayer: Record<number, string[]> = {};
+    snapshot.nodes.forEach((n) => {
+      const l = layers[n.id] ?? 0;
+      (byLayer[l] = byLayer[l] || []).push(n.id);
     });
 
-    const X_SPACING = 250;
-    const Y_SPACING = 150;
-    const BASE_X = 150;
-    const CENTER_Y = 350;
+    const stepByService = new Map<string, TracePathStep>();
+    (tracePath || []).forEach((s) => stepByService.set(s.serviceName, s));
 
-    const layoutedNodes = nodesList.map(node => {
-      const layerNodes = layers[node.layer];
-      const index = layerNodes.findIndex(n => n.id === node.id);
-      const totalInLayer = layerNodes.length;
-      
-      const x = BASE_X + (node.layer * X_SPACING);
-      const startY = CENTER_Y - ((totalInLayer - 1) * Y_SPACING) / 2;
-      const y = startY + (index * Y_SPACING);
-
-      return { ...node, x, y };
+    const laidOut: GraphNode[] = snapshot.nodes.map((n) => {
+      const layer = layers[n.id] ?? 0;
+      const peers = byLayer[layer];
+      const index = peers.indexOf(n.id);
+      const startY = CENTER_Y - ((peers.length - 1) * Y_SPACING) / 2;
+      const step = stepByService.get(n.id);
+      return {
+        ...n,
+        layer,
+        x: BASE_X + layer * X_SPACING,
+        y: startY + index * Y_SPACING,
+        icon: KIND_ICONS[n.kind || ''] || FALLBACK_ICON,
+        traceTotalMs: step?.totalDurationMs,
+        traceSelfMs: step?.selfTimeMs,
+        traceStatus: step?.status
+      };
     });
 
-    return { nodes: layoutedNodes, edges: edgesList };
-  }, [nodesMap, edgesMap]);
+    // An edge belongs to the selected trace when both of its endpoints appear in that
+    // trace. Derived from recorded participants rather than guessed from the URL.
+    const traceServices = new Set(stepByService.keys());
+    const laidOutEdges: GraphEdge[] = snapshot.edges.map((e) => ({
+      ...e,
+      id: `${e.source}->${e.target}`,
+      inSelectedTrace: traceServices.has(e.source) && traceServices.has(e.target),
+      status: e.errorCount > 0 ? 'error' : 'healthy'
+    }));
 
-  const resetTopology = useCallback(() => {
-    setNodesMap({});
-    setEdgesMap({});
-  }, []);
+    return { nodes: laidOut, edges: laidOutEdges };
+  }, [snapshot, tracePath]);
 
-  return { nodes, edges, processEvent, resetTopology };
+  return { nodes, edges, refresh, selectTrace, loading, error, hasTracePath: tracePath !== null };
 }

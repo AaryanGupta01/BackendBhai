@@ -2,294 +2,641 @@
 
 > **Chrome DevTools for backend systems.**
 
-BackendBhai is a browser-based developer tool that captures every backend request and presents it as a complete interactive execution story — every service hop, database query, external API call, and log entry for a single request, all in one view.
+BackendBhai is a local-first observability platform. It captures every request that
+flows through your backend and presents it as one interactive execution story — every
+service hop, database query, external API call and its real timing, in a single browser
+tab.
+
+It is a **standalone platform**, not part of any one application. It monitors products.
+This repository ships one example product (a simulated e-commerce store) so you have
+something to look at on day one, but the platform itself knows nothing about it.
 
 ---
 
-## What Problem Does This Solve?
+## Table of contents
 
-When a backend bug happens, developers currently switch between **6+ disconnected tools** — logs, database consoles, API clients, tracing UIs — to understand what one request did. BackendBhai puts all of that in **one browser tab**.
-
-**The analogy:** Chrome DevTools is to browser development as BackendBhai is to backend development.
+1. [How it works](#how-it-works)
+2. [Prerequisites](#prerequisites)
+3. [Quick start](#quick-start)
+4. [Step-by-step setup](#step-by-step-setup)
+5. [Verifying your install](#verifying-your-install)
+6. [Every port and URL](#every-port-and-url)
+7. [Taking the demo for a spin](#taking-the-demo-for-a-spin)
+8. [Connecting your own product](#connecting-your-own-product)
+9. [API reference](#api-reference)
+10. [Everyday commands](#everyday-commands)
+11. [Troubleshooting](#troubleshooting)
+12. [Developing on BackendBhai](#developing-on-backendbhai)
+13. [Project structure](#project-structure)
+14. [Design rules](#design-rules)
 
 ---
 
-## Architecture
+## How it works
+
+Your services emit OpenTelemetry traces. A collector receives them and forwards them to
+the BackendBhai server, which stores them in Postgres and serves both the REST API and
+the UI on a single port.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Browser (localhost:4001)                      │
-│                    BackendBhai DevTools UI (React)                   │
-│         Request Explorer · Waterfall · Logs · DB Queries · Topology  │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ REST + WebSocket
-┌──────────────────────────────▼──────────────────────────────────────┐
-│                   DevTools Core Server (Fastify)                     │
-│              OTLP Receiver · Trace Storage · API Layer               │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────────────┐
-│                       PostgreSQL (port 5432)                         │
-│                 traces · spans · logs · services                     │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│                    OTel Collector (Docker container)                 │
-│                 Receives telemetry via OTLP HTTP                    │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ OTLP HTTP
-┌──────────────────────────────▼──────────────────────────────────────┐
-│              Simulated E-Commerce Backend (Microservices)            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
-│  │   API    │→ │   Auth   │→ │  Order   │→ │ Payment  │           │
-│  │ Gateway  │  │ Service  │  │ Service  │  │ Service  │           │
-│  │ :3000    │  │ :3001    │  │ :3002    │  │ :3003    │           │
-│  └──────────┘  └──────────┘  └──────────┘  └────┬─────┘           │
-│                                                  │                  │
-│                                           ┌──────▼──────┐          │
-│                                           │ Mock Payment │          │
-│                                           │    :4000     │          │
-│                                           └─────────────┘          │
-└─────────────────────────────────────────────────────────────────────┘
+   YOUR PRODUCT (any language, anywhere)
+   ┌──────────┐  ┌──────────┐  ┌──────────┐
+   │ service  │  │ service  │  │ service  │
+   └────┬─────┘  └────┬─────┘  └────┬─────┘
+        └─────────────┼─────────────┘
+                      │  OTLP (gRPC :4317 / HTTP :4318)
+                      ▼
+        ┌───────────────────────────┐
+        │   OpenTelemetry Collector │
+        └─────────────┬─────────────┘
+                      │  OTLP HTTP (JSON or protobuf)
+                      ▼
+        ┌───────────────────────────┐        ┌──────────────┐
+        │   BackendBhai server      │───────▶│  PostgreSQL  │
+        │   REST + WebSocket + UI   │        │  :5433       │
+        │   http://localhost:4001   │        └──────────────┘
+        └───────────────────────────┘
+                      │
+                      ▼
+              Your browser
 ```
+
+Everything runs on your machine. No cloud, no SaaS, no account.
 
 ---
 
-## Demo Walkthrough (For Panel Presentation)
+## Prerequisites
 
-### Step 1: Start Everything
+Install these three things first. The versions matter.
+
+| Tool | Version | How to check | Where to get it |
+|------|---------|--------------|-----------------|
+| **Docker Desktop** | any current | `docker --version` | <https://www.docker.com/products/docker-desktop/> |
+| **Node.js** | 20 or newer | `node --version` | <https://nodejs.org/> |
+| **pnpm** | 9 or newer | `pnpm --version` | `npm install -g pnpm` |
+
+**Docker Desktop must actually be running** before you start — not just installed. On
+Windows and macOS, launch it and wait for the whale icon to stop animating.
+
+Verify all three at once:
 
 ```bash
-docker compose up -d --build
+docker --version && node --version && pnpm --version
 ```
 
-Wait ~30 seconds for all containers to start. Verify with:
+---
+
+## Quick start
+
+If you just want it running and you have the prerequisites above:
 
 ```bash
-docker compose ps
+git clone https://github.com/Abhi-R459/BackendBhai.git
 ```
 
-You should see all 10 containers running (postgres, redis, otel-collector, api-gateway, auth-service, order-service, payment-service, mock-payment-api, demo-frontend, amazon-store).
-
-### Step 2: Show the "Product" — Amazon-Inspired Storefront
-
-**Open:** `http://localhost:4003`
-
-This is the **simulated e-commerce website** that users interact with. It looks like a real online store with products, a shopping cart, and a checkout flow.
-
-**What to say:** *"This is a simulated e-commerce backend — the kind of application our tool is designed to monitor. It has multiple microservices: API gateway, authentication, order processing, and payment."*
-
-Place an order by clicking through the checkout flow. This generates real telemetry data that flows through the entire pipeline.
-
-### Step 3: Show the Error Injector Dashboard
-
-**Open:** `http://localhost:4002`
-
-This is the **failure simulation control panel**. It lets you toggle between different failure modes in real-time:
-
-| Mode | What Happens | What You'll See in BackendBhai |
-|------|-------------|-------------------------------|
-| **Normal** | Happy path, ~200ms checkout | Green waterfall, fast spans |
-| **Heavy Order** | >10 items → 3s DB delay | Long yellow DB span in waterfall |
-| **Auth Timeout** | Invalid token → 5s timeout | Red error span on auth-service |
-| **Slow Payment** | 5s external gateway delay | Long orange external API span |
-| **Payment 503** | Gateway temporarily unavailable | Red error span on payment-service |
-| **Random** | Mix of all above | Real-world chaos |
-
-**What to say:** *"We can inject real failures into the system to show how BackendBhai catches debugging scenarios."*
-
-### Step 4: Open BackendBhai — The Main Product
-
-**Open:** `http://localhost:4001`
-
-This is **BackendBhai** — the Chrome DevTools for backend systems. You'll see:
-
-1. **Request Explorer** (left sidebar) — a filterable list of every captured request, like Chrome DevTools Network Tab
-2. **Waterfall** (main panel) — a visual timeline showing every service, DB query, and external API call for the selected request, with real timing
-3. **Context Panel** (right/bottom) — logs correlated to that specific request, the actual SQL queries, external API calls and their responses
-4. **Overview** — full request/response headers and bodies
-
-### Step 5: Live Demo — Place an Order and Watch It Appear
-
-1. Go to `http://localhost:4003` (the store)
-2. Add a product to cart and click checkout
-3. Switch to `http://localhost:4001` (BackendBhai)
-4. **The request appears in real-time** in the Request Explorer
-5. Click on it to see the **complete execution story**:
-   - API Gateway received the request
-   - Auth Service verified the token
-   - Order Service created the order
-   - Payment Service processed the payment
-   - Mock Payment API charged the card
-6. Each span shows **exact timing** — you can see where time was spent
-7. Click on any span to see the **actual SQL queries**, **request/response bodies**, and **correlated logs**
-
-### Step 6: Inject a Failure and Debug It
-
-1. Go to `http://localhost:4002` (Error Injector)
-2. Select **"Payment 503"** mode
-3. Go to `http://localhost:4003` and place another order
-4. Switch to `http://localhost:4001` (BackendBhai)
-5. You'll see the **failed request** with a red error indicator
-6. Click on it — the waterfall shows:
-   - ✅ API Gateway: OK
-   - ✅ Auth Service: OK
-   - ✅ Order Service: OK
-   - ❌ **Payment Service: 503 Error**
-7. The **error message** and **stack trace** are right there
-8. The **correlated logs** show exactly what happened at each step
-
-**What to say:** *"Without BackendBhai, a developer would need to check API gateway logs, then auth logs, then order logs, then payment logs, then the payment provider's status page. With BackendBhai, you see the entire story in one click."*
-
-### Step 7: Show the Different Views
-
-**Waterfall View:**
-- Visual timeline of all service hops
-- Color-coded by service (green = OK, red = error, yellow = slow)
-- Exact duration of each span
-- Click any span for details
-
-**Logs View:**
-- All log entries correlated to the selected request
-- Filtered by trace_id — you only see logs from this specific request
-- No more searching through millions of log lines
-
-**DB Queries View:**
-- Actual SQL queries executed during the request
-- Query duration and results
-- See exactly which query was slow
-
-**External APIs View:**
-- External HTTP calls (e.g., to payment provider)
-- Request/response bodies
-- Status codes and timing
-
-**Topology View:**
-- Service dependency graph
-- Visual map of which services communicate
-- Error rates per service
-
----
-
-## Quick Reference — All Ports
-
-| Port | Service | URL |
-|------|---------|-----|
-| 4001 | **BackendBhai DevTools UI** | `http://localhost:4001` |
-| 4002 | Error Injector Dashboard | `http://localhost:4002` |
-| 4003 | Amazon Storefront (demo) | `http://localhost:4003` |
-| 3000 | API Gateway | `http://localhost:3000` |
-| 3001 | Auth Service | `http://localhost:3001` |
-| 3002 | Order Service | `http://localhost:3002` |
-| 3003 | Payment Service | `http://localhost:3003` |
-| 4000 | Mock Payment API | `http://localhost:4000` |
-| 5432 | PostgreSQL | `localhost:5432` |
-| 6379 | Redis | `localhost:6379` |
-| 4317/4318 | OTel Collector | `localhost:4317` (gRPC) / `localhost:4318` (HTTP) |
-
----
-
-## Key Demo Talking Points
-
-1. **"One request, one view"** — Unlike Datadog/New Relic which show aggregated metrics, BackendBhai shows the complete story of a single request.
-
-2. **"Local-first"** — Everything runs on your machine. No cloud, no SaaS, no external dependencies. That's a differentiator vs. expensive cloud platforms.
-
-3. **"Real failures, real debugging"** — The failure injection isn't simulated in the UI — it's real failures in real microservices. The tool catches actual 503s, actual timeouts, actual slow queries.
-
-4. **"Chrome DevTools for backend"** — The mental model is simple. Everyone knows Chrome DevTools Network Tab. BackendBhai is that, but for your backend.
-
-5. **"From 6 tools to 1"** — Instead of switching between logs, DB console, API client, and tracing UI, everything is in one browser tab.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React, TypeScript, Vite, Tailwind CSS, Zustand, React Query |
-| Backend | Node.js, Fastify, TypeScript, PostgreSQL |
-| Telemetry | OpenTelemetry, OTLP HTTP, W3C Trace Context |
-| Infrastructure | Docker Compose |
-| Testing | Vitest, Playwright |
-
----
-
-## Five Workstreams
-
-| # | Workstream | Area | Status |
-|---|-----------|------|--------|
-| 1 | Telemetry | `apps/telemetry-collector/`, `packages/instrumentation/` | ✅ Core complete |
-| 2 | Core Platform | `apps/devtools-core/` | ✅ Server + APIs |
-| 3 | Frontend | `apps/devtools-ui/` | ✅ React UI |
-| 4 | Demo Environment | `apps/demo-store/`, `infrastructure/` | ✅ Microservices |
-| 5 | Integration | `contracts/`, `tests/`, `docs/` | ✅ Contracts + QA |
-
----
-
-## Getting Started (Development)
-
-### Prerequisites
-
-- Node.js 20+
-- Docker and Docker Compose
-- pnpm
-
-### Start
+```bash
+cd BackendBhai && pnpm install && pnpm -r build
+```
 
 ```bash
-# Install dependencies
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+Wait about 60 seconds for the first build, then open **<http://localhost:4001>**.
+
+If anything goes wrong, follow the detailed steps below instead — they explain what each
+command does and what to expect.
+
+---
+
+## Step-by-step setup
+
+### Step 1 — Clone the repository
+
+```bash
+git clone https://github.com/Abhi-R459/BackendBhai.git
+```
+
+```bash
+cd BackendBhai
+```
+
+### Step 2 — Install dependencies
+
+This is a pnpm **monorepo**: one `pnpm install` at the root installs every package.
+Do not run `npm install`, and do not install inside subfolders.
+
+```bash
 pnpm install
+```
 
-# Build all packages
+Expect roughly 400 packages and 30–90 seconds. You should end with `Done in …`.
+
+> If you see `ERR_PNPM_IGNORED_BUILDS`, your pnpm is refusing to run the postinstall
+> scripts that `esbuild` and `protobufjs` need. The repository already approves these in
+> `pnpm-workspace.yaml` under `allowBuilds`. Make sure you did not modify that file.
+
+### Step 3 — Build the TypeScript
+
+**This step is required and easy to miss.** Compiled output (`dist/`) is deliberately not
+committed to git, so a fresh clone has none. The Docker images copy `dist/` in at build
+time, so skipping this makes the next step fail with errors like
+`"/dist": not found`.
+
+```bash
 pnpm -r build
-
-# Start all services
-docker compose up -d --build
-
-# Open in browser
-open http://localhost:4001
 ```
 
-### Stop
+This compiles all 11 packages — the platform server, the React UI, the shared types, the
+instrumentation library and the seven demo services. Expect `Done` for each.
+
+### Step 4 — Start everything with Docker
+
+The platform and the demo product are separate compose files. To run **both** (what you
+want the first time):
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 ```
 
-### Reset
+To run **only the platform**, with no demo product at all:
 
 ```bash
-docker compose down -v
 docker compose up -d --build
+```
+
+The first build pulls base images and compiles inside containers — budget 2–5 minutes.
+Later starts take seconds.
+
+### Step 5 — Confirm the containers are healthy
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml ps
+```
+
+You should see **11 containers**, all `Up`, with `postgres` and `redis` marked
+`(healthy)`:
+
+```
+amazon-store, api-gateway, auth-service, demo-frontend, devtools-core,
+mock-payment-api, order-service, otel-collector, payment-service, postgres, redis
+```
+
+If any container is `Exited` or `Restarting`, jump to
+[Troubleshooting](#troubleshooting).
+
+### Step 6 — Open the platform
+
+**<http://localhost:4001>**
+
+On a brand-new install the graph is intentionally **empty**, and the sidebar says
+*"Waiting for telemetry."* That is correct behaviour — BackendBhai never invents sample
+data. Generate some traffic in the next section and it will fill in.
+
+---
+
+## Verifying your install
+
+Run these three checks in order.
+
+**1. Is the platform alive?**
+
+```bash
+curl http://localhost:4001/health
+```
+
+Expect `{"status":"ok","version":"0.1.0"}`. If you get `database: disconnected`,
+Postgres has not finished starting — wait 10 seconds and retry.
+
+**2. Generate a real request through the demo product.**
+
+```bash
+curl -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d "{\"userId\":\"demo\",\"items\":[{\"id\":\"p1\",\"name\":\"Keyboard\",\"price\":89.99,\"qty\":1}]}"
+```
+
+Expect HTTP 201 and an `orderId`.
+
+**3. Confirm the trace was captured** (telemetry takes ~5 seconds to batch through the
+collector):
+
+```bash
+curl "http://localhost:4001/api/v1/requests?limit=3"
+```
+
+You should see your request with a 32-character hex `traceId`. Now reload
+<http://localhost:4001> — the request appears in the sidebar and the topology graph draws
+itself from the services that actually took part.
+
+---
+
+## Every port and URL
+
+### The platform
+
+| Port | What | URL |
+|------|------|-----|
+| **4001** | **BackendBhai UI + REST API + WebSocket** | <http://localhost:4001> |
+| 4318 | OTLP HTTP ingest — point your product here | `http://localhost:4318` |
+| 4317 | OTLP gRPC ingest | `http://localhost:4317` |
+| 5433 | PostgreSQL (telemetry storage) | `postgresql://app:secret@localhost:5433/devtools` |
+
+> Postgres is on **5433** on your machine, not 5432, so it cannot clash with a local
+> Postgres you already run. Inside Docker it is still `postgres:5432`.
+
+### The demo product (only with `docker-compose.demo.yml`)
+
+| Port | What | URL |
+|------|------|-----|
+| 4003 | Amazon-style storefront — click through this | <http://localhost:4003> |
+| 4002 | Failure Simulator — inject faults | <http://localhost:4002> |
+| 3000 | API Gateway (entry point) | <http://localhost:3000> |
+| 3001 | Auth service | <http://localhost:3001> |
+| 3002 | Order service | <http://localhost:3002> |
+| 3003 | Payment service | <http://localhost:3003> |
+| 4000 | Mock payment provider | <http://localhost:4000> |
+| 6379 | Redis | `redis://localhost:6379` |
+
+---
+
+## Taking the demo for a spin
+
+1. **Open the storefront** at <http://localhost:4003>, pick a product and click
+   **Buy Now → Place your order**.
+2. **Open BackendBhai** at <http://localhost:4001>. Your order is in the sidebar with its
+   real duration.
+3. **Click the request.** The graph highlights only the services that took part, and each
+   one shows two numbers:
+   - **self** — time that service actually spent working
+   - **total** — wall-clock time including waiting on downstream calls
+
+   A gateway showing `3ms self / 16ms total` was not slow; it was waiting. This is the
+   distinction that tells you where a problem actually is.
+4. **Click "Run Diagnostics"** in the Replay Console. BackendBhai re-issues the exact
+   recorded request and shows the original versus the replay side by side.
+
+### Breaking things on purpose
+
+Open the **Failure Simulator** at <http://localhost:4002> and pick a mode. It is applied
+globally, so it affects storefront orders too, not just the simulator's own test buttons.
+
+| Mode | What happens | What you see in BackendBhai |
+|------|--------------|------------------------------|
+| Normal | Fast happy path | Green, ~20ms |
+| Heavy Order DB | Large order triggers a slow query | Long database span |
+| Auth Timeout | Auth rejects after 5s | Red 401, auth-service self-time ≈ 5s |
+| Payment 503 | Payment provider unavailable | Red 503 on payment-service |
+| Slow Payment | 5s payment delay | Payment self-time ≈ 5s |
+| Random Chaos | A mix of the above | Realistic noise |
+
+Set a mode, place an order at <http://localhost:4003>, then look at the trace in
+BackendBhai. Reset with:
+
+```bash
+curl -X POST http://localhost:3000/api/simulation/reset
 ```
 
 ---
 
-## Project Structure
+## Connecting your own product
+
+BackendBhai monitors anything that speaks OpenTelemetry — any language, any framework.
+The demo store is just one example.
+
+### Step 1 — Run the platform alone
+
+```bash
+docker compose up -d --build
+```
+
+### Step 2 — Point your application at the collector
+
+BackendBhai does not need a special SDK. Use the standard OpenTelemetry SDK for your
+language and set two environment variables:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_SERVICE_NAME=my-service
+```
+
+For a Node.js service, this repository ships a ready-made helper:
+
+```bash
+node --import ./lib/telemetry/preload.mjs dist/index.js
+```
+
+with:
+
+```bash
+SERVICE_NAME=my-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+Send traffic through your app, then open <http://localhost:4001>. Services, dependencies,
+node types and latencies all appear on their own — nothing is configured by hand.
+
+### Step 3 (optional) — Tell the platform where your product lives
+
+Some features (request replay, endpoint probing) need to reach your product. Telemetry
+records the *caller's* view of a URL, which the platform may not be able to resolve — a
+recorded `localhost:3000` means something different inside a container. Set:
+
+```bash
+PRODUCT_NAME=My Product
+PRODUCT_BASE_URL=http://my-gateway:3000
+```
+
+on the `devtools-core` service. `docker-compose.demo.yml` shows exactly this pattern.
+
+### Step 4 (optional) — Explore the API surface
+
+BackendBhai learns your endpoints three ways:
+
+- **Observed** — every request you serve is recorded automatically. Free and zero risk.
+- **From a spec** — import an OpenAPI document for complete coverage:
+
+  ```bash
+  curl -X POST http://localhost:4001/api/v1/discovery/openapi -H "Content-Type: application/json" -d "{\"serviceName\":\"my-service\",\"specUrl\":\"http://localhost:8080/openapi.json\"}"
+  ```
+
+- **By probing** — actively call the discovered endpoints so the resulting telemetry
+  builds the graph:
+
+  ```bash
+  curl -X POST http://localhost:4001/api/v1/discovery/probe -H "Content-Type: application/json" -d "{\"baseUrl\":\"http://localhost:3000\",\"dryRun\":true}"
+  ```
+
+> **Safety.** Probing sends real traffic to a real product. Only `GET`, `HEAD` and
+> `OPTIONS` run by default. Anything that could change data is refused with HTTP 403
+> unless you explicitly pass `"allowMutating": true`. Always run `dryRun` first to see
+> the plan. Endpoints with path parameters (`/orders/{id}`) are skipped, because guessing
+> identifiers is not safe.
+
+---
+
+## API reference
+
+Base URL `http://localhost:4001`.
+
+### Requests and traces
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/health` | Liveness and database status |
+| `GET` | `/api/v1/config` | Runtime config the UI reads at boot |
+| `GET` | `/api/v1/requests?limit=50` | Recent captured requests |
+| `GET` | `/api/v1/requests/:traceId` | Full detail for one request |
+| `GET` | `/api/v1/traces/:traceId/waterfall` | Span waterfall |
+| `GET` | `/api/v1/traces/:traceId/path` | Per-service hops with **self** and **total** time |
+| `GET` | `/api/v1/traces/:traceId/summary` | Service count, error count, totals |
+| `GET` | `/api/v1/traces/:traceId/node/:service` | Every span and log for one service |
+| `GET` | `/api/v1/traces/:traceId/logs` | Logs correlated to that trace |
+
+### Topology and discovery
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/v1/topology` | Services and dependencies with measured avg/p95 |
+| `GET` | `/api/v1/discovery/endpoints` | Every endpoint the platform knows about |
+| `POST` | `/api/v1/discovery/openapi` | Import an OpenAPI document |
+| `POST` | `/api/v1/discovery/probe` | Execute discovered endpoints |
+
+### Replay
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `POST` | `/api/v1/replay` | Re-issue a recorded request (`{"traceId":"..."}`) |
+| `GET` | `/api/v1/replay/:replayId` | Fetch a replay result |
+| `GET` | `/api/v1/compare/:replayId` | Measured diff: status, duration, body |
+
+### Ingest
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `POST` | `/v1/traces` | OTLP traces — JSON or protobuf |
+| `WS` | `/ws` | Live `new_request` events |
+
+---
+
+## Everyday commands
+
+All commands assume you are in the repository root.
+
+**Follow the logs**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml logs -f devtools-core
+```
+
+**Stop everything (data is kept)**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down
+```
+
+**Stop and wipe all captured telemetry**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down -v
+```
+
+**Clear captured traces without restarting**
+
+```bash
+docker compose exec postgres psql -U app -d devtools -c "TRUNCATE traces, spans, log_events, service_dependencies, services CASCADE;"
+```
+
+**Inspect the database directly**
+
+```bash
+docker compose exec postgres psql -U app -d devtools
+```
+
+**Generate continuous demo traffic**
+
+```bash
+node scripts/traffic-generator.js
+```
+
+---
+
+## Troubleshooting
+
+### `failed to compute cache key: "/dist": not found`
+
+You skipped Step 3. Build first, then rebuild the images:
+
+```bash
+pnpm -r build && docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+### `ERR_PNPM_IGNORED_BUILDS` during install
+
+pnpm is skipping postinstall scripts that Vite's `esbuild` needs. Confirm
+`pnpm-workspace.yaml` still contains:
+
+```yaml
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+```
+
+### Port is already allocated
+
+Another program holds one of the ports. Find it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml ps
+```
+
+Then either stop that program or change the left-hand side of the port mapping in
+`docker-compose.yml` (for example `"4005:4001"`).
+
+### The UI loads but stays empty
+
+This is normal until telemetry arrives. Check, in order:
+
+1. Send a request: `curl http://localhost:3000/api/products`
+2. Wait ~5 seconds — the collector batches before exporting.
+3. Look for export failures: `docker compose logs otel-collector | grep -i "exporting failed"`
+4. Look for ingest errors: `docker compose logs devtools-core | grep -i error`
+
+### The API returns 503
+
+The platform cannot reach Postgres. BackendBhai deliberately reports 503 rather than
+showing fabricated data. Check `docker compose ps` — `postgres` must be `(healthy)`.
+
+### I changed source code and nothing happened
+
+Demo service images copy the compiled `dist/` at build time, so you must recompile and
+rebuild that image:
+
+```bash
+pnpm -r build
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build <service-name>
+```
+
+The platform server (`devtools-core`) compiles inside its own image, so for it a
+`--build` alone is enough.
+
+### Start completely fresh
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down -v --remove-orphans
+```
+
+```bash
+pnpm install && pnpm -r build && docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+---
+
+## Developing on BackendBhai
+
+### Run the UI with hot reload
+
+Keep the stack running, then:
+
+```bash
+cd apps/devtools-ui && pnpm dev
+```
+
+Vite serves on <http://localhost:5173> and proxies `/api` and `/ws` to port 4001.
+
+### Run the platform server locally
+
+```bash
+docker compose up -d postgres otel-collector
+```
+
+```bash
+cd apps/devtools-core && pnpm dev
+```
+
+### Run the tests
+
+```bash
+cd apps/devtools-core && pnpm test
+```
+
+### Type-check without emitting
+
+```bash
+cd apps/devtools-core && npx tsc --noEmit
+```
+
+### Editing telemetry code
+
+`apps/telemetry-collector/src` is the single source of truth for service
+instrumentation. After changing it, sync the compiled copies into each demo service:
+
+```bash
+node scripts/sync-telemetry.js
+```
+
+Check for drift in CI with `node scripts/sync-telemetry.js --check`.
+
+---
+
+## Project structure
 
 ```
 backendbhai/
+├── docker-compose.yml          # THE PLATFORM (postgres + collector + server)
+├── docker-compose.demo.yml     # The demo product, as an overlay
 ├── apps/
-│   ├── devtools-core/        # Fastify server, OTLP receiver, APIs
-│   ├── devtools-ui/          # React frontend (Vite)
-│   ├── telemetry-collector/  # OTel instrumentation library
-│   └── demo-store/           # Simulated e-commerce microservices
-│       ├── api-gateway/      # Entry point (port 3000)
-│       ├── auth-service/     # Authentication (port 3001)
-│       ├── order-service/    # Order processing (port 3002)
-│       ├── payment-service/  # Payment processing (port 3003)
-│       ├── mock-payment-api/ # WireMock payment stubs (port 4000)
-│       ├── frontend/         # Error injector dashboard (port 4002)
-│       └── amazon-store/     # Storefront UI (port 4003)
-├── packages/
-│   └── shared/               # Shared TypeScript types
-├── contracts/                # API, events, telemetry contracts
-├── infrastructure/           # Docker Compose, OTel config, DB init
-├── tests/                    # Contract tests, fixtures
-├── planning/                 # Product research, architecture docs
-└── docker-compose.yml        # All 10 services orchestrated
+│   ├── devtools-core/          # Platform server: ingest, REST, WebSocket, migrations
+│   ├── devtools-ui/            # React UI, served by devtools-core on :4001
+│   ├── telemetry-collector/    # OpenTelemetry instrumentation library
+│   └── demo-store/             # Example product being monitored
+│       ├── api-gateway/        # :3000  entry point
+│       ├── auth-service/       # :3001
+│       ├── order-service/      # :3002
+│       ├── payment-service/    # :3003
+│       ├── mock-payment-api/   # :4000  external provider
+│       ├── frontend/           # :4002  failure simulator
+│       └── amazon-store/       # :4003  storefront
+├── packages/shared/            # Shared TypeScript types
+├── infrastructure/             # Collector config, database init
+├── scripts/                    # Seeding, traffic generation, verification
+├── contracts/                  # API, events, telemetry, data-model contracts
+└── docs/                       # Additional documentation
 ```
+
+---
+
+## Design rules
+
+These are enforced, not aspirational. They are why you can trust what the UI shows.
+
+1. **No fabricated data, ever.** There are no seed fixtures and no sample traces. If
+   there is no telemetry, the UI says so and the API returns 503. A number on screen was
+   measured.
+2. **The graph is discovered, not declared.** Services, dependencies and node types
+   (database, cache, queue, external) are derived from span attributes at ingest —
+   never from service names.
+3. **Latency is per hop.** Every service reports its own **self** time separately from
+   **total** time, so a service that is merely waiting is never blamed.
+4. **The platform is product-agnostic.** No product URL, service name or port is compiled
+   into the build. The UI resolves its own origin at runtime; anything product-specific
+   comes from the environment.
+5. **Destructive actions are opt-in.** Endpoint probing sends real traffic, so mutating
+   HTTP verbs are refused unless explicitly enabled.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS v4 |
+| Backend | Node.js 20, Fastify, TypeScript |
+| Storage | PostgreSQL 16 |
+| Telemetry | OpenTelemetry, OTLP (HTTP + gRPC), W3C Trace Context |
+| Infrastructure | Docker Compose |
+| Testing | Vitest |
 
 ---
 

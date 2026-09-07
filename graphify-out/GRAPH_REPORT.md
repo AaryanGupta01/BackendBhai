@@ -1,38 +1,38 @@
 # Graph Report - backend-devtools  (2026-09-07)
 
 ## Corpus Check
-- 166 files · ~91,828 words
+- 173 files · ~95,389 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1574 nodes · 1717 edges · 187 communities (135 shown, 26 thin omitted)
+- 1622 nodes · 1819 edges · 185 communities (131 shown, 27 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 13 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7b5c3552`
+- Built from commit: `1c666511`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - payment-service/lib/telemetry/logger.js
 - BackendBhai — Telemetry Contract
-- useDynamicTopology.ts
+- logger.ts
 - devtools-ui/package.json
 - order-service/src/index.ts
-- logger.ts
+- api-gateway/lib/telemetry/logger.js
 - BackendBhai — REST API Contract
 - 1. DevTools Database Schema
 - compilerOptions
 - shared/src/index.ts
-- api-gateway/lib/telemetry/logger.js
+- replay.ts
 - BackendBhai — Versioning Policy
 - compilerOptions
 - devtools-core/src/index.ts
 - BackendBhai — WebSocket Event Contract
-- devDependencies
+- services/discovery.ts
 - otlp-receiver.ts
-- isDbAvailable
+- QueryRepository
 - BackendBhai — Repository Initialization
 - telemetry-collector/package.json
 - compilerOptions
@@ -43,10 +43,10 @@
 - Backend DevTools — Implementation Blueprint
 - Backend DevTools — Pre-Development Audit
 - BackendBhai
-- ErrorBoundary.tsx
+- client.ts
 - Backend DevTools — Development Backlog
 - order-service/package.json
-- in-memory-store.ts
+- devDependencies
 - compilerOptions
 - 8. Development Phases
 - 3. Screen Specifications
@@ -59,7 +59,7 @@
 - 4. Instrumentation
 - Legend
 - sync-telemetry.js
-- scripts
+- 003_discovered_endpoints.sql
 - Backend DevTools — UI/UX Implementation Specification
 - 5. Design System
 - init-db.js
@@ -67,12 +67,10 @@
 - frontend/package.json
 - mock-payment-api/package.json
 - dependencies
-- WebSocketHandler
-- dependencies
+- services
 - shared/package.json
 - 1. Product Audit
 - contract/package.json
-- White-Space Analysis
 - migrations/001_initial.sql
 - compilerOptions
 - compilerOptions
@@ -151,7 +149,6 @@
 - FIRST END-TO-END VERTICAL SLICE
 - 4. Dependencies
 - 9. Feature Freeze
-- 10. Database Inspector UI
 - 11. External API UI
 - 13. Replay UI
 - 14. Compare UI
@@ -185,21 +182,21 @@
 5. `Backend DevTools — Development Backlog` - 20 edges
 6. `compilerOptions` - 18 edges
 7. `Backend DevTools — Pre-Development Audit` - 18 edges
-8. `buildServer()` - 15 edges
-9. `fastify` - 14 edges
-10. `compilerOptions` - 14 edges
+8. `fastify` - 17 edges
+9. `buildServer()` - 17 edges
+10. `QueryRepository` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `BackendBhai App` --implements--> `UI/UX Implementation Spec`  [INFERRED]
   apps/devtools-ui/last_msg.txt → planning/04-ui-ux-implementation-spec.md
 - `Telemetry Collector README` --references--> `OTel Collector Config`  [EXTRACTED]
   apps/telemetry-collector/README.md → infrastructure/otel-collector-config.yaml
-- `buildServer()` --calls--> `isDbAvailable()`  [EXTRACTED]
-  apps/devtools-core/src/index.ts → apps/devtools-core/src/db/connection.ts
-- `start()` --calls--> `runMigrations()`  [EXTRACTED]
-  apps/devtools-core/src/index.ts → apps/devtools-core/src/db/migrate.ts
-- `start()` --calls--> `seedIfEmpty()`  [EXTRACTED]
-  apps/devtools-core/src/index.ts → apps/devtools-core/src/fixtures/seed.ts
+- `importOpenApi()` --calls--> `requireDb()`  [EXTRACTED]
+  apps/devtools-core/src/services/discovery.ts → apps/devtools-core/src/db/connection.ts
+- `listEndpoints()` --calls--> `requireDb()`  [EXTRACTED]
+  apps/devtools-core/src/services/discovery.ts → apps/devtools-core/src/db/connection.ts
+- `probeEndpoints()` --calls--> `requireDb()`  [EXTRACTED]
+  apps/devtools-core/src/services/discovery.ts → apps/devtools-core/src/db/connection.ts
 
 ## Import Cycles
 - None detected.
@@ -212,7 +209,7 @@
 - **Telemetry Ingestion Pipeline** — planning_02_implementation_blueprint_otel_collector, planning_03_development_backlog_vertical_slice, planning_05_pre_development_audit_otlp_receiver_risk [INFERRED 0.85]
 - **Frontend Development Flow** — apps_devtools_ui_app, planning_ui_ux_spec, planning_product_research [INFERRED 0.85]
 
-## Communities (187 total, 26 thin omitted)
+## Communities (185 total, 27 thin omitted)
 
 ### Community 0 - "payment-service/lib/telemetry/logger.js"
 Cohesion: 0.12
@@ -222,21 +219,21 @@ Nodes (17): api_1, createLogger(), originalConsoleDebug, originalConsoleError, o
 Cohesion: 0.06
 Nodes (35): OTel Collector, 10. OTel Collector Pipeline, 1. Trace Model, 2. Span Model, 3. Log Model, 4. HTTP Attributes, 5. Database Attributes, 6. External API Attributes (+27 more)
 
-### Community 2 - "useDynamicTopology.ts"
-Cohesion: 0.36
-Nodes (7): App(), ApiTelemetryEvent, getServiceMeta(), GraphEdge, GraphNode, useDynamicTopology(), lucide-react
+### Community 2 - "logger.ts"
+Cohesion: 0.23
+Nodes (11): createLogger(), LogEntry, LogLevel, originalConsoleDebug, originalConsoleError, originalConsoleLog, originalConsoleWarn, patchConsoleLogs() (+3 more)
 
 ### Community 3 - "devtools-ui/package.json"
-Cohesion: 0.13
-Nodes (14): typescript, name, private, type, version, autoprefixer, postcss, react-dom (+6 more)
+Cohesion: 0.06
+Nodes (33): dependencies, lucide-react, react, react-dom, devDependencies, autoprefixer, postcss, tailwindcss (+25 more)
 
 ### Community 4 - "order-service/src/index.ts"
 Cohesion: 0.09
 Nodes (23): api_1, createLogger(), originalConsoleDebug, originalConsoleError, originalConsoleLog, originalConsoleWarn, patchConsoleLogs(), api_1 (+15 more)
 
-### Community 5 - "logger.ts"
-Cohesion: 0.07
-Nodes (34): initTracing(), api_1, createLogger(), originalConsoleDebug, originalConsoleError, originalConsoleLog, originalConsoleWarn, patchConsoleLogs() (+26 more)
+### Community 5 - "api-gateway/lib/telemetry/logger.js"
+Cohesion: 0.06
+Nodes (38): api_1, createLogger(), originalConsoleDebug, originalConsoleError, originalConsoleLog, originalConsoleWarn, patchConsoleLogs(), api_1 (+30 more)
 
 ### Community 6 - "BackendBhai — REST API Contract"
 Cohesion: 0.08
@@ -254,9 +251,9 @@ Nodes (24): compilerOptions, alwaysStrict, declaration, declarationMap, esModule
 Cohesion: 0.17
 Nodes (22): ApiError, CompareRequest, ComparisonResult, LogEvent, LogsResponse, PaginatedResponse, ReplayResponse, ReplaySession (+14 more)
 
-### Community 10 - "api-gateway/lib/telemetry/logger.js"
-Cohesion: 0.14
-Nodes (15): api_1, createLogger(), originalConsoleDebug, originalConsoleError, originalConsoleLog, originalConsoleWarn, patchConsoleLogs(), api_1 (+7 more)
+### Community 10 - "replay.ts"
+Cohesion: 0.23
+Nodes (6): getRepository(), sendRepositoryError(), ReplaySession, replaySessions, STRIPPED_HEADERS, SPANS
 
 ### Community 11 - "BackendBhai — Versioning Policy"
 Cohesion: 0.09
@@ -268,23 +265,23 @@ Nodes (20): compilerOptions, allowImportingTsExtensions, baseUrl, isolatedModule
 
 ### Community 13 - "devtools-core/src/index.ts"
 Cohesion: 0.15
-Nodes (16): pool, __dirname, __filename, runMigrations(), seedIfEmpty(), buildServer(), __dirname, fastify (+8 more)
+Nodes (16): isDbAvailable(), pool, __dirname, __filename, runMigrations(), buildServer(), __dirname, fastify (+8 more)
 
 ### Community 14 - "BackendBhai — WebSocket Event Contract"
 Cohesion: 0.11
 Nodes (18): 1. Connection, 2. Event Format, 3. Server → Client Events, 4. Client → Server Events, 5. REST / WebSocket Shape Compatibility, 6. Error Handling, 7. Reconnection, BackendBhai — WebSocket Event Contract (+10 more)
 
-### Community 15 - "devDependencies"
-Cohesion: 0.20
-Nodes (10): devDependencies, autoprefixer, postcss, tailwindcss, @tailwindcss/postcss, @types/react, @types/react-dom, typescript (+2 more)
+### Community 15 - "services/discovery.ts"
+Cohesion: 0.24
+Nodes (11): DiscoveredEndpoint, EndpointSource, fetchJson(), importOpenApi(), KNOWN_METHODS, listEndpoints(), probeEndpoints(), ProbeOptions (+3 more)
 
 ### Community 16 - "otlp-receiver.ts"
 Cohesion: 0.19
-Nodes (11): TraceRepository, nanosToMillis(), OtlpReceiver, repo, toHex(), redactBody(), redactHeaders(), redactRecursive() (+3 more)
+Nodes (11): TraceRepository, CACHE_DB_SYSTEMS, nanosToMillis(), repo, toHex(), redactBody(), redactHeaders(), redactRecursive() (+3 more)
 
-### Community 17 - "isDbAvailable"
-Cohesion: 0.24
-Nodes (5): isDbAvailable(), getRepository(), QueryRepository, queryRepo, replaySessions
+### Community 17 - "QueryRepository"
+Cohesion: 0.26
+Nodes (3): DatabaseUnavailableError, requireDb(), QueryRepository
 
 ### Community 18 - "BackendBhai — Repository Initialization"
 Cohesion: 0.12
@@ -303,16 +300,16 @@ Cohesion: 0.12
 Nodes (10): resource, sdk, resource, sdk, resource, sdk, resource, sdk (+2 more)
 
 ### Community 22 - "devtools-core/package.json"
-Cohesion: 0.12
-Nodes (15): pg, @types/node, @types/pg, typescript, vitest, name, type, version (+7 more)
+Cohesion: 0.09
+Nodes (21): pg, @types/node, @types/pg, typescript, vitest, name, scripts, build (+13 more)
 
 ### Community 23 - "otlp.ts"
-Cohesion: 0.31
-Nodes (8): decodeProtobufTraces(), __dirname, getExportRequestType(), makeHandler(), parseBinaryBody(), PROTO_FILES, PROTO_ROOT, receiver
+Cohesion: 0.15
+Nodes (12): decodeProtobufTraces(), __dirname, getExportRequestType(), makeHandler(), parseBinaryBody(), PROTO_FILES, PROTO_ROOT, receiver (+4 more)
 
 ### Community 24 - "Backend DevTools — Product Research & Validation"
-Cohesion: 0.15
-Nodes (13): Backend DevTools — Product Research & Validation, BIGGEST COMPETITIVE THREAT, BIGGEST PRODUCT RISK, BIGGEST TECHNICAL RISK, **BUILD** — with scope narrowing, Executive Summary, Final Decision, FINAL PRODUCT IN 30 SECONDS (+5 more)
+Cohesion: 0.12
+Nodes (16): Backend DevTools — Product Research & Validation, BIGGEST COMPETITIVE THREAT, BIGGEST PRODUCT RISK, BIGGEST TECHNICAL RISK, **BUILD** — with scope narrowing, Current Market Map, Executive Summary, Final Decision (+8 more)
 
 ### Community 25 - "Backend DevTools — Implementation Blueprint"
 Cohesion: 0.13
@@ -326,9 +323,9 @@ Nodes (14): Backend DevTools — Pre-Development Audit, Demo Freeze, Exact demon
 Cohesion: 0.09
 Nodes (22): Architecture, BackendBhai, Demo Walkthrough (For Panel Presentation), Five Workstreams, Getting Started (Development), Key Demo Talking Points, License, Prerequisites (+14 more)
 
-### Community 28 - "ErrorBoundary.tsx"
-Cohesion: 0.28
-Nodes (4): ErrorBoundary, Props, State, react
+### Community 28 - "client.ts"
+Cohesion: 0.08
+Nodes (35): ApiError, DiscoveredEndpoint, fetchConfig(), fetchEndpoints(), fetchRequests(), fetchTopology(), fetchTracePath(), get() (+27 more)
 
 ### Community 29 - "Backend DevTools — Development Backlog"
 Cohesion: 0.14
@@ -338,9 +335,9 @@ Nodes (14): 13. FIRST 10 THINGS TO BUILD, 15. MOST CRITICAL DEPENDENCY, 16. MOST
 Cohesion: 0.07
 Nodes (26): dependencies, express, @opentelemetry/api, @opentelemetry/auto-instrumentations-node, @opentelemetry/exporter-trace-otlp-http, @opentelemetry/resources, @opentelemetry/sdk-node, @opentelemetry/semantic-conventions (+18 more)
 
-### Community 31 - "in-memory-store.ts"
-Cohesion: 0.21
-Nodes (6): baseTime, SEED_SERVICE_DEPS, SEED_SERVICES, SEED_TOPOLOGY, SEED_TRACE_DETAILS, SEED_TRACES
+### Community 31 - "devDependencies"
+Cohesion: 0.25
+Nodes (8): devDependencies, copyfiles, cross-env, tsx, @types/node, @types/pg, typescript, vitest
 
 ### Community 32 - "compilerOptions"
 Cohesion: 0.15
@@ -390,13 +387,9 @@ Nodes (12): EPIC E10 — Testing & Polish, EPIC E1 — Simulated Backend, EPIC E
 Cohesion: 0.20
 Nodes (11): CHECK, { execSync }, fs, listFilesRecursive(), main(), path, relPath(), ROOT (+3 more)
 
-### Community 44 - "scripts"
-Cohesion: 0.40
-Nodes (5): scripts, build, dev, lint, preview
-
 ### Community 45 - "Backend DevTools — UI/UX Implementation Specification"
-Cohesion: 0.18
-Nodes (11): 15.1 Palette Design, 15.2 Command Categories, 15. Command Palette, 17.1 Seed Data Scenarios, 17.2 Service Color Assignments, 17.3 Latency Distribution, 17. Mock Data Requirements, Backend DevTools — UI/UX Implementation Specification (+3 more)
+Cohesion: 0.14
+Nodes (14): 10.1 SQL Syntax Highlighting, 10.2 Query Card States, 10. Database Inspector UI, 15.1 Palette Design, 15.2 Command Categories, 15. Command Palette, 17.1 Seed Data Scenarios, 17.2 Service Color Assignments (+6 more)
 
 ### Community 46 - "5. Design System"
 Cohesion: 0.18
@@ -419,12 +412,8 @@ Cohesion: 0.20
 Nodes (9): main, name, private, scripts, build, dev, test, types (+1 more)
 
 ### Community 51 - "dependencies"
-Cohesion: 0.07
-Nodes (25): dependencies, dotenv, fastify, @fastify/cors, @fastify/static, @fastify/websocket, @opentelemetry/otlp-proto-exporter-base, @opentelemetry/otlp-transformer (+17 more)
-
-### Community 53 - "dependencies"
-Cohesion: 0.50
-Nodes (4): dependencies, lucide-react, react, react-dom
+Cohesion: 0.20
+Nodes (10): dependencies, dotenv, fastify, @fastify/cors, @fastify/static, @fastify/websocket, @opentelemetry/otlp-proto-exporter-base, @opentelemetry/otlp-transformer (+2 more)
 
 ### Community 54 - "shared/package.json"
 Cohesion: 0.14
@@ -437,10 +426,6 @@ Nodes (10): 1. Product Audit, Is it actually different from Datadog?, Is it actu
 ### Community 56 - "contract/package.json"
 Cohesion: 0.12
 Nodes (15): supertest, @types/supertest, devDependencies, supertest, @types/supertest, typescript, vitest, typescript (+7 more)
-
-### Community 57 - "White-Space Analysis"
-Cohesion: 0.67
-Nodes (3): Current Market Map, White-Space Analysis, White-Space Opportunities
 
 ### Community 58 - "migrations/001_initial.sql"
 Cohesion: 0.44
@@ -718,10 +703,6 @@ Nodes (3): 4.1 Dependency Graph, 4.2 Hard Blockers, 4. Dependencies
 Cohesion: 0.67
 Nodes (3): 9. Feature Freeze, Freeze Timeline, What's Frozen at Each Gate
 
-### Community 148 - "10. Database Inspector UI"
-Cohesion: 0.67
-Nodes (3): 10.1 SQL Syntax Highlighting, 10.2 Query Card States, 10. Database Inspector UI
-
 ### Community 149 - "11. External API UI"
 Cohesion: 0.67
 Nodes (3): 11.1 Request/Response Display, 11.2 Response Display, 11. External API UI
@@ -755,24 +736,24 @@ Cohesion: 0.67
 Nodes (3): Exact features to build:, MVP Freeze, Total task count for MVP: ~30 tasks (down from 55 in the backlog)
 
 ## Knowledge Gaps
-- **1032 isolated node(s):** `name`, `version`, `private`, `main`, `types` (+1027 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1121 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1044 isolated node(s):** `name`, `version`, `private`, `main`, `types` (+1039 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1137 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Backend DevTools — Development Backlog` connect `Backend DevTools — Development Backlog` to `Per-Feature Done Criteria`, `5. Team Assignment`, `7. First Vertical Slice`, `8. Development Phases`, `12. Demo Readiness Checklist`, `14. PARALLEL WORKSTREAMS`, `10. Scope-Cut Strategy`, `2. Feature Breakdown`, `4. Dependencies`, `9. Feature Freeze`, `01-product-research-validation.md`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Why does `Backend DevTools — UI/UX Implementation Specification` connect `Backend DevTools — UI/UX Implementation Specification` to `12. Logs UI`, `1. Information Architecture`, `THREE MOST IMPORTANT INTERACTIONS`, `THREE MOST IMPORTANT SCREENS`, `2. Navigation`, `6. Interaction System`, `10. Database Inspector UI`, `11. External API UI`, `13. Replay UI`, `14. Compare UI`, `4. Component Architecture`, `8. Trace UI`, `9. Service Topology UI`, `3. Screen Specifications`, `5. Design System`, `16. Frontend Architecture`, `18. Responsive Behavior`, `20. Implementation Priorities`, `19. Accessibility`, `7. Animation System`, `01-product-research-validation.md`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **Why does `Backend DevTools — Product Research & Validation` connect `Backend DevTools — Product Research & Validation` to `Technical Feasibility`, `Competitive Landscape`, `Differentiation Analysis`, `Product Definition`, `Feature-by-Feature Analysis`, `Try to Kill the Idea`, `Feature Classification`, `OpenTelemetry Ecosystem Analysis`, `White-Space Analysis`, `01-product-research-validation.md`?**
-  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `Backend DevTools — Implementation Blueprint` connect `Backend DevTools — Implementation Blueprint` to `12. Security`, `14.2 Key Test Scenarios`, `9. Replay Architecture`, `4. Instrumentation`, `17. Technical Risks`, `1. Architecture`, `2. Component Diagram`, `5. Trace Model`, `6. Database Schema`, `13. Performance`, `15. Hackathon Architecture`, `3. Data Flow`, `FIRST END-TO-END VERTICAL SLICE`, `7.1 REST API`, `8. WebSocket Specification`, `01-product-research-validation.md`, `18. Final Architecture Recommendations`?**
+  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Why does `Backend DevTools — UI/UX Implementation Specification` connect `Backend DevTools — UI/UX Implementation Specification` to `12. Logs UI`, `1. Information Architecture`, `THREE MOST IMPORTANT INTERACTIONS`, `THREE MOST IMPORTANT SCREENS`, `2. Navigation`, `6. Interaction System`, `11. External API UI`, `13. Replay UI`, `14. Compare UI`, `4. Component Architecture`, `8. Trace UI`, `9. Service Topology UI`, `3. Screen Specifications`, `5. Design System`, `16. Frontend Architecture`, `18. Responsive Behavior`, `20. Implementation Priorities`, `19. Accessibility`, `7. Animation System`, `01-product-research-validation.md`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `Backend DevTools — Product Research & Validation` connect `Backend DevTools — Product Research & Validation` to `Technical Feasibility`, `Competitive Landscape`, `Differentiation Analysis`, `Product Definition`, `Feature-by-Feature Analysis`, `Try to Kill the Idea`, `Feature Classification`, `OpenTelemetry Ecosystem Analysis`, `01-product-research-validation.md`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _1032 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1044 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `payment-service/lib/telemetry/logger.js` be split into smaller, more focused modules?**
   _Cohesion score 0.11956521739130435 - nodes in this community are weakly interconnected._
 - **Should `BackendBhai — Telemetry Contract` be split into smaller, more focused modules?**
   _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
 - **Should `devtools-ui/package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.058823529411764705 - nodes in this community are weakly interconnected._

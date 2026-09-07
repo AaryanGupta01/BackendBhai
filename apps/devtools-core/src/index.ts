@@ -3,9 +3,12 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { runMigrations } from './db/migrate.js';
 import { pool, isDbAvailable } from './db/connection.js';
-import { seedIfEmpty } from './fixtures/seed.js';
 
 const fastify = Fastify({ logger: true });
+
+// Deployment details belong in the environment, not in the bundle.
+const PORT = Number(process.env.PORT || 4001);
+const HOST = process.env.HOST || '0.0.0.0';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -35,6 +38,8 @@ export async function buildServer() {
   fastify.register(import('./routes/requests.js'));
   fastify.register(import('./routes/topology.js'));
   fastify.register(import('./routes/replay.js'));
+  fastify.register(import('./routes/discovery.js'));
+  fastify.register(import('./routes/config.js'));
 
   fastify.register(import('@fastify/static').then(m => m.default), {
     root: path.join(__dirname, '../../devtools-ui/dist'),
@@ -49,16 +54,11 @@ const start = async () => {
     const server = await buildServer();
     try {
       await runMigrations();
-      try {
-        await seedIfEmpty();
-      } catch (err) {
-        console.warn('Failed to run seed:', err);
-      }
     } catch (err) {
-      console.warn('Database unavailable, running in standalone mode with in-memory data');
+      console.warn('Telemetry database unavailable — API will report 503 until it is reachable.');
     }
-    await server.listen({ port: 4001, host: '0.0.0.0' });
-    console.log('Server listening on http://localhost:4001');
+    await server.listen({ port: PORT, host: HOST });
+    console.log(`BackendBhai platform listening on http://${HOST}:${PORT}`);
   } catch (err) {
     console.error(err);
     process.exit(1);

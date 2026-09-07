@@ -27,3 +27,16 @@ if (process.env.NO_DB === '1') {
 } else {
   testConnection().catch(() => { dbAvailable = false; });
 }
+
+// Callers must fail loudly when telemetry storage is down. Returning fabricated
+// fixtures here is what made seeded demo data indistinguishable from real traces.
+export class DatabaseUnavailableError extends Error {
+  code = 'DB_UNAVAILABLE';
+  constructor() {
+    super('Telemetry database unavailable');
+  }
+}
+
+export function requireDb(): void {
+  if (!dbAvailable) throw new DatabaseUnavailableError();
+}

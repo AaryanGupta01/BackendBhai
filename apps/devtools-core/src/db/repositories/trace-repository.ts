@@ -44,17 +44,25 @@ export class TraceRepository {
     }
   }
 
-  async upsertServices(serviceNames: string[]) {
-    if (!serviceNames || serviceNames.length === 0) return;
+  // Services arrive with a kind derived from span attributes at ingest. Evidence that a
+  // service is instrumented (it emits its own spans, so gateway/service) always beats a
+  // guess made from the calling side, which can otherwise land first and stick.
+  async upsertServices(services: { name: string; kind?: string }[]) {
+    if (!services || services.length === 0) return;
     const query = `
-      INSERT INTO services (name, last_seen)
-      VALUES ($1, NOW())
+      INSERT INTO services (name, kind, last_seen)
+      VALUES ($1, $2, NOW())
       ON CONFLICT (name) DO UPDATE SET
         last_seen = EXCLUDED.last_seen,
+        kind = CASE
+          WHEN EXCLUDED.kind IN ('gateway', 'service') THEN EXCLUDED.kind
+          WHEN services.kind IN ('gateway', 'service') THEN services.kind
+          ELSE COALESCE(EXCLUDED.kind, services.kind)
+        END,
         request_count = services.request_count + 1
     `;
-    for (const name of serviceNames) {
-      await pool.query(query, [name]);
+    for (const svc of services) {
+      await pool.query(query, [svc.name, svc.kind ?? null]);
     }
   }
 

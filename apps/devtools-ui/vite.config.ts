@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   build: {
-    emptyOutDir: false,
+    emptyOutDir: true,
   },
   server: {
     port: 5173,

@@ -1,13 +1,16 @@
-# BackendBhai — Docker Compose
-# Architecture & Orchestration for all 5 Workstreams + Amazon Storefront
-
-version: '3.8'
+# BackendBhai — the monitoring platform.
+#
+# This file contains ONLY the platform. It monitors products; it does not contain
+# any. A product connects by pointing its OpenTelemetry exporter at the collector
+# below, in any language, running anywhere that can reach this host.
+#
+#   Platform only:      docker compose up -d
+#   Platform + demo:    docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
 
 services:
   # ─────────────────────────────────────────────
-  # Shared Infrastructure
+  # Telemetry storage
   # ─────────────────────────────────────────────
-
   postgres:
     image: postgres:16-alpine
     container_name: backendbhai-postgres
@@ -21,34 +24,22 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init.sh:/docker-entrypoint-initdb.d/000_init_databases.sh
       - ./infrastructure/db/devtools:/docker-entrypoint-initdb.d/devtools
-      - ./infrastructure/db/ecommerce:/docker-entrypoint-initdb.d/ecommerce
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d devtools && pg_isready -U app -d ecommerce"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: backendbhai-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U app -d devtools"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   # ─────────────────────────────────────────────
-  # Telemetry Layer (Workstream 1)
+  # Ingest — the platform's connection point.
+  # Any product that speaks OTLP can report here.
   # ─────────────────────────────────────────────
-
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: backendbhai-otel-collector
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
     volumes:
       - ./infrastructure/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     depends_on:
@@ -56,10 +47,8 @@ services:
         condition: service_healthy
 
   # ─────────────────────────────────────────────
-  # DevTools Server & UI (Workstream 2 & 3)
-  # Per D-13: UI served directly by devtools-core on port 4001
+  # Platform server + UI (single port, D-13)
   # ─────────────────────────────────────────────
-
   devtools-core:
     build:
       context: .
@@ -69,141 +58,19 @@ services:
       - "4001:4001"
     environment:
       DATABASE_URL: postgresql://app:secret@postgres:5432/devtools
-      REDIS_URL: redis://redis:6379
-      OTEL_COLLECTOR_URL: http://otel-collector:4317
-      SIMULATED_BACKEND_URL: http://api-gateway:3000
       PORT: 4001
       NODE_ENV: development
+      # Advertised to the UI so an operator can see where to send telemetry.
+      PUBLIC_OTLP_HTTP_URL: http://localhost:4318
+      PUBLIC_OTLP_GRPC_URL: http://localhost:4317
+      # Active probing may send traffic to a monitored product. Off by default;
+      # mutating verbs additionally require an explicit per-request opt-in.
+      ALLOW_MUTATING_PROBES: "false"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       otel-collector:
         condition: service_started
-
-  # ─────────────────────────────────────────────
-  # Simulated Backend Microservices (Workstream 4)
-  # ─────────────────────────────────────────────
-
-  api-gateway:
-    build:
-      context: ./apps/demo-store/api-gateway
-      dockerfile: Dockerfile
-    container_name: backendbhai-api-gateway
-    ports:
-      - "3000:3000"
-    environment:
-      SERVICE_NAME: api-gateway
-      PORT: 3000
-      AUTH_SERVICE_URL: http://auth-service:3001
-      ORDER_SERVICE_URL: http://order-service:3002
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-    depends_on:
-      - auth-service
-      - order-service
-      - otel-collector
-
-  auth-service:
-    build:
-      context: ./apps/demo-store/auth-service
-      dockerfile: Dockerfile
-    container_name: backendbhai-auth-service
-    ports:
-      - "3001:3001"
-    environment:
-      SERVICE_NAME: auth-service
-      PORT: 3001
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-    depends_on:
-      - otel-collector
-
-  order-service:
-    build:
-      context: ./apps/demo-store/order-service
-      dockerfile: Dockerfile
-    container_name: backendbhai-order-service
-    ports:
-      - "3002:3002"
-    environment:
-      SERVICE_NAME: order-service
-      PORT: 3002
-      DATABASE_URL: postgresql://app:secret@postgres:5432/ecommerce
-      REDIS_URL: redis://redis:6379
-      PAYMENT_SERVICE_URL: http://payment-service:3003
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      payment-service:
-        condition: service_started
-      otel-collector:
-        condition: service_started
-
-  payment-service:
-    build:
-      context: ./apps/demo-store/payment-service
-      dockerfile: Dockerfile
-    container_name: backendbhai-payment-service
-    ports:
-      - "3003:3003"
-    environment:
-      SERVICE_NAME: payment-service
-      PORT: 3003
-      MOCK_PAYMENT_URL: http://mock-payment-api:4000
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-    depends_on:
-      - mock-payment-api
-      - otel-collector
-
-  mock-payment-api:
-    build:
-      context: ./apps/demo-store/mock-payment-api
-      dockerfile: Dockerfile
-    container_name: backendbhai-mock-payment-api
-    ports:
-      - "4000:4000"
-    environment:
-      PORT: 4000
-    volumes:
-      - ./mocks/payment-api:/home/wiremock
-
-  # ─────────────────────────────────────────────
-  # Master Error Injector Dashboard (:4002)
-  # ─────────────────────────────────────────────
-
-  demo-frontend:
-    build:
-      context: ./apps/demo-store/frontend
-      dockerfile: Dockerfile
-    container_name: backendbhai-demo-frontend
-    ports:
-      - "4002:4002"
-    environment:
-      PORT: 4002
-      API_GATEWAY_URL: http://localhost:3000
-    depends_on:
-      - api-gateway
-
-  # ─────────────────────────────────────────────
-  # Amazon-Inspired Storefront (:4003)
-  # Dynamic checkout state controlled by Master Error Injector
-  # ─────────────────────────────────────────────
-
-  amazon-store:
-    build:
-      context: ./apps/demo-store/amazon-store
-      dockerfile: Dockerfile
-    container_name: backendbhai-amazon-store
-    ports:
-      - "4003:4003"
-    environment:
-      PORT: 4003
-      API_GATEWAY_URL: http://localhost:3000
-    depends_on:
-      - api-gateway
 
 volumes:
   postgres_data:

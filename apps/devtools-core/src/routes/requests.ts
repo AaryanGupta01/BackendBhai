@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { getRepository } from '../db/repositories/query-repository.js';
+import { sendRepositoryError } from './errors.js';
 
 export default async function (fastify: FastifyInstance) {
   fastify.get('/api/v1/requests', async (request: any, reply) => {
@@ -8,8 +9,7 @@ export default async function (fastify: FastifyInstance) {
       const result = await repo.getRequestsSummary(request.query || {});
       return reply.send(result);
     } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to fetch requests' });
+      return sendRepositoryError(fastify, reply, err, 'Failed to fetch requests');
     }
   });
 
@@ -23,8 +23,7 @@ export default async function (fastify: FastifyInstance) {
       }
       return reply.send(trace);
     } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to fetch trace details' });
+      return sendRepositoryError(fastify, reply, err, 'Failed to fetch trace details');
     }
   });
 
@@ -35,8 +34,7 @@ export default async function (fastify: FastifyInstance) {
       const result = await repo.getLogsByTraceId(id);
       return reply.send(result);
     } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to fetch trace logs' });
+      return sendRepositoryError(fastify, reply, err, 'Failed to fetch trace logs');
     }
   });
 
@@ -48,8 +46,7 @@ export default async function (fastify: FastifyInstance) {
       if (!result) return reply.status(404).send({ error: 'Trace not found' });
       return reply.send(result);
     } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to fetch trace waterfall' });
+      return sendRepositoryError(fastify, reply, err, 'Failed to fetch trace waterfall');
     }
   });
 }
