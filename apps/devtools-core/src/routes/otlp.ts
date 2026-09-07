@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import protobuf from 'protobufjs';
 import type { Type as ProtobufType } from 'protobufjs';
 import { OtlpReceiver } from '../services/otlp-receiver.js';
-import { wsHandler } from '../ws/handler.js';
 
 const receiver = new OtlpReceiver();
 
@@ -93,13 +92,4 @@ export default async function (fastify: FastifyInstance) {
     return reply.send({ partialSuccess: null });
   });
 
-  fastify.post('/api/v1/telemetry/demo-event', async (request, reply) => {
-    try {
-      const payload = request.body as any;
-      wsHandler.broadcastNewRequest(payload);
-      return reply.send({ success: true });
-    } catch (err) {
-      return reply.status(500).send({ error: 'Failed' });
-    }
-  });
 }

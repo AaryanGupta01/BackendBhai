@@ -139,10 +139,8 @@ app.get('/api/products', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/products`, 'GET', getForwardHeaders(req));
-    emitTelemetry('/api/products', 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
-    emitTelemetry('/api/products', 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch products from order service', message: err.message });
   }
 });
@@ -152,10 +150,8 @@ app.get('/api/orders', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/orders`, 'GET', getForwardHeaders(req));
-    emitTelemetry('/api/orders', 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
-    emitTelemetry('/api/orders', 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch orders from order service', message: err.message });
   }
 });
@@ -165,10 +161,8 @@ app.get('/api/orders/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/orders/${req.params.id}`, 'GET', getForwardHeaders(req));
-    emitTelemetry(`/api/orders/${req.params.id}`, 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
-    emitTelemetry(`/api/orders/${req.params.id}`, 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch order', message: err.message });
   }
 });
@@ -196,7 +190,6 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 
     if (authResult.statusCode !== 200) {
       const duration = Date.now() - startTime;
-      emitTelemetry('/api/orders', 'POST', authResult.statusCode, duration, true);
 
       return res.status(authResult.statusCode).json({
         error: 'Authentication failed',
@@ -210,7 +203,6 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     const orderResult = await forwardRequest(`${ORDER_SERVICE_URL}/orders`, 'POST', orderHeaders, orderBody);
 
     const duration = Date.now() - startTime;
-    emitTelemetry('/api/orders', 'POST', orderResult.statusCode, duration, orderResult.statusCode >= 400);
 
     return res.status(orderResult.statusCode).json({
       ...orderResult.data,
@@ -221,7 +213,6 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     console.error('[APIGateway] Error handling /api/orders:', err.message);
     
-    emitTelemetry('/api/orders', 'POST', 500, duration, true);
 
     return res.status(500).json({
       error: 'Gateway routing failure',
@@ -232,33 +223,10 @@ app.post('/api/orders', async (req: Request, res: Response) => {
   }
 });
 
-function emitTelemetry(path: string, method: string, statusCode: number, durationMs: number, isError: boolean) {
-  const payload = {
-    id: Math.random().toString(36).substring(7),
-    method,
-    path,
-    status_code: statusCode,
-    duration_ms: durationMs,
-    start_time: Date.now() - durationMs,
-    end_time: Date.now(),
-    root_service: 'api-gateway',
-    services: ['client', 'api-gateway', 'auth-service', 'order-service'],
-    status: isError ? 'error' : 'ok'
-  };
-
-  const req = http.request({
-    hostname: 'localhost',
-    port: 4001,
-    path: '/api/v1/telemetry/demo-event',
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
-  }, (res) => {
-    res.on('data', () => {}); // consume
-  });
-  req.on('error', () => {}); // ignore
-  req.write(JSON.stringify(payload));
-  req.end();
-}
+// Telemetry is emitted by the OpenTelemetry SDK, not pushed by hand. The previous
+// emitTelemetry() helper POSTed a fabricated summary to localhost:4001 - a port
+// nothing listens on inside this container - which failed on every request and
+// added a bogus "localhost" dependency to the discovered topology.
 
 app.listen(port, () => {
   console.log(`API Gateway listening on port ${port}`);
