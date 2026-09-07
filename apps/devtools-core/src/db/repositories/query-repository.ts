@@ -362,7 +362,14 @@ export class QueryRepository {
                COUNT(*) FILTER (WHERE status = 'error') AS error_count,
                ROUND(AVG(duration_ms)) AS avg_duration_ms,
                ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)) AS p95_duration_ms
-        FROM spans GROUP BY service_name
+        FROM spans
+        -- Server spans only. A service also emits hundreds of 0ms Express middleware
+        -- spans and client spans that double-count downstream time; averaging those in
+        -- produced figures like '192ms avg, p95 39ms', which are arithmetically correct
+        -- and describe nothing anyone wants to know. A server span is one request this
+        -- service handled, which is the number the graph is asking about.
+        WHERE span_type = 'server'
+        GROUP BY service_name
       ) agg ON agg.service_name = sv.name
       ORDER BY sv.name
     `;

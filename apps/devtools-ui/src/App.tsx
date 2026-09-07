@@ -570,12 +570,11 @@ export default function App() {
                     <path
                       d={pathData}
                       fill="none"
+                      // Neutral at rest. A dependency that has recorded errors is not a
+                      // highlighted path, so its error count goes in the label instead of
+                      // colouring the line, which otherwise reads as an active trace.
                       className={`transition-all duration-500 ${
-                        isDimmed
-                          ? 'opacity-20 stroke-earth-border'
-                          : isError
-                          ? 'stroke-earth-error/40 stroke-[3px]'
-                          : 'stroke-earth-border stroke-[2px]'
+                        isDimmed ? 'opacity-15 stroke-earth-muted' : 'stroke-earth-muted/45 stroke-[1.5px]'
                       }`}
                     />
                     {edge.inSelectedTrace && (
@@ -595,7 +594,7 @@ export default function App() {
                         textAnchor="middle"
                         className="fill-earth-muted text-[10px] font-mono"
                       >
-                        {edge.avgDurationMs}ms avg
+                        {edge.avgDurationMs}ms avg{edge.errorCount > 0 ? ` · ${edge.errorCount} err` : ''}
                       </text>
                     )}
                   </g>
@@ -655,11 +654,11 @@ export default function App() {
                   ) : (
                     <div className="mt-2.5 space-y-0.5">
                       <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
-                        {node.spanCount > 0 ? `${node.avgDurationMs}ms avg` : 'no spans'}
+                        {node.spanCount > 0 ? `${node.avgDurationMs}ms avg` : 'no requests'}
                       </div>
                       {node.spanCount > 0 && (
                         <div className="text-[10px] font-mono text-earth-muted">
-                          p95 {node.p95DurationMs}ms · {node.spanCount} spans
+                          p95 {node.p95DurationMs}ms · {node.spanCount} reqs
                         </div>
                       )}
                     </div>
@@ -710,7 +709,7 @@ export default function App() {
                     <div className="p-3 bg-earth-base text-xs font-mono text-earth-text space-y-1">
                       <div>service: {selectedNode.label}</div>
                       <div>kind: {selectedNode.kind || 'unclassified'}</div>
-                      <div>spans: {selectedNode.spanCount}</div>
+                      <div>requests: {selectedNode.spanCount}</div>
                       <div>avg: {ms(selectedNode.avgDurationMs)} · p95: {ms(selectedNode.p95DurationMs)}</div>
                       {selectedNode.traceSelfMs !== undefined && (
                         <div>this trace: {ms(selectedNode.traceSelfMs)} self / {ms(selectedNode.traceTotalMs)} total</div>
