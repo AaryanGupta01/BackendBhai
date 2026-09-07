@@ -16,6 +16,14 @@ export default {
           error: '#C05640',
           success: '#5A7D59'
         }
+      },
+      keyframes: {
+        flow: {
+          'to': { 'stroke-dashoffset': '-150' },
+        }
+      },
+      animation: {
+        flow: 'flow 2s linear infinite',
       }
     },
   },

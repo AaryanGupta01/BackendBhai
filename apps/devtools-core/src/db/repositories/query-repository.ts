@@ -1,8 +1,11 @@
-import { pool } from '../connection.js';
-
-export class QueryRepository {
+import { pool, isDbAvailable } from '../connection.js';
+import * as inMemoryStore from '../../fixtures/in-memory-store.js';export class QueryRepository {
   async getRequestsSummary(params: any = {}) {
-    let {
+    if (!isDbAvailable()) {
+      return inMemoryStore.getRequestsSummary(params);
+    }
+    try {
+      let {
       page = 1,
       limit = 50,
       method,
@@ -123,15 +126,19 @@ export class QueryRepository {
       };
     });
 
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages
-      }
-    };
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages
+        }
+      };
+    } catch (err) {
+      console.error(err);
+      return inMemoryStore.getRequestsSummary(params);
+    }
   }
 
   private parseJson(val: any) {
@@ -149,7 +156,11 @@ export class QueryRepository {
   }
 
   async getTraceById(traceId: string) {
-    const traceQuery = `SELECT * FROM traces WHERE id = $1`;
+    if (!isDbAvailable()) {
+      return inMemoryStore.getTraceById(traceId);
+    }
+    try {
+      const traceQuery = `SELECT * FROM traces WHERE id = $1`;
     const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
     const trace = traceRows[0];
@@ -210,27 +221,35 @@ export class QueryRepository {
       attributes: this.parseJson(l.attributes) || {}
     }));
 
-    return {
-      traceId: trace.id,
-      method: trace.method,
-      path: trace.path,
-      statusCode: trace.status_code,
-      durationMs: parseInt(trace.duration_ms || '0', 10),
-      timestamp: this.toIsoString(trace.start_time),
-      rootService: trace.root_service,
-      requestBody: this.parseJson(trace.request_body),
-      responseBody: this.parseJson(trace.response_body),
-      requestHeaders: this.parseJson(trace.request_headers),
-      responseHeaders: this.parseJson(trace.response_headers),
-      spans: mappedSpans,
-      logs: mappedLogs,
-      dbQueries,
-      externalCalls
-    };
+      return {
+        traceId: trace.id,
+        method: trace.method,
+        path: trace.path,
+        statusCode: trace.status_code,
+        durationMs: parseInt(trace.duration_ms || '0', 10),
+        timestamp: this.toIsoString(trace.start_time),
+        rootService: trace.root_service,
+        requestBody: this.parseJson(trace.request_body),
+        responseBody: this.parseJson(trace.response_body),
+        requestHeaders: this.parseJson(trace.request_headers),
+        responseHeaders: this.parseJson(trace.response_headers),
+        spans: mappedSpans,
+        logs: mappedLogs,
+        dbQueries,
+        externalCalls
+      };
+    } catch (err) {
+      console.error(err);
+      return inMemoryStore.getTraceById(traceId);
+    }
   }
 
   async getTraceWaterfall(traceId: string) {
-    const traceQuery = `SELECT start_time, duration_ms FROM traces WHERE id = $1`;
+    if (!isDbAvailable()) {
+      return inMemoryStore.getTraceWaterfall(traceId);
+    }
+    try {
+      const traceQuery = `SELECT start_time, duration_ms FROM traces WHERE id = $1`;
     const { rows: traceRows } = await pool.query(traceQuery, [traceId]);
     if (traceRows.length === 0) return null;
 
@@ -289,37 +308,53 @@ export class QueryRepository {
       };
     });
 
-    return {
-      traceId,
-      totalDurationMs: traceDuration,
-      startTimestamp: this.toIsoString(traceStart),
-      spans: waterfallSpans
-    };
+      return {
+        traceId,
+        totalDurationMs: traceDuration,
+        startTimestamp: this.toIsoString(traceStart),
+        spans: waterfallSpans
+      };
+    } catch (err) {
+      console.error(err);
+      return inMemoryStore.getTraceWaterfall(traceId);
+    }
   }
 
   async getLogsByTraceId(traceId: string) {
-    const query = `
+    if (!isDbAvailable()) {
+      return inMemoryStore.getLogsByTraceId(traceId);
+    }
+    try {
+      const query = `
       SELECT * FROM log_events 
       WHERE trace_id = $1 
       ORDER BY timestamp ASC
     `;
     const { rows } = await pool.query(query, [traceId]);
-    return {
-      traceId,
-      logs: rows.map(l => ({
-        timestamp: this.toIsoString(l.timestamp),
-        level: l.level,
-        service: l.service_name,
-        message: l.message,
-        traceId: l.trace_id,
-        spanId: l.span_id || undefined,
-        attributes: this.parseJson(l.attributes) || {}
-      }))
-    };
+      return {
+        traceId,
+        logs: rows.map(l => ({
+          timestamp: this.toIsoString(l.timestamp),
+          level: l.level,
+          service: l.service_name,
+          message: l.message,
+          traceId: l.trace_id,
+          spanId: l.span_id || undefined,
+          attributes: this.parseJson(l.attributes) || {}
+        }))
+      };
+    } catch (err) {
+      console.error(err);
+      return inMemoryStore.getLogsByTraceId(traceId);
+    }
   }
 
   async getTopology() {
-    const nodesQuery = `SELECT name as id, name as label, request_count, error_count, avg_duration_ms FROM services`;
+    if (!isDbAvailable()) {
+      return inMemoryStore.getTopology();
+    }
+    try {
+      const nodesQuery = `SELECT name as id, name as label, request_count, error_count, avg_duration_ms FROM services`;
     const edgesQuery = `
       SELECT source_service as source, target_service as target, request_count, error_count, avg_duration_ms 
       FROM service_dependencies
@@ -330,9 +365,13 @@ export class QueryRepository {
       pool.query(edgesQuery)
     ]);
     
-    return {
-      nodes: nodesRes.rows,
-      edges: edgesRes.rows
-    };
+      return {
+        nodes: nodesRes.rows,
+        edges: edgesRes.rows
+      };
+    } catch (err) {
+      console.error(err);
+      return inMemoryStore.getTopology();
+    }
   }
 }

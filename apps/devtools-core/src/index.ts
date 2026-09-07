@@ -2,7 +2,8 @@ import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { runMigrations } from './db/migrate.js';
-import { pool } from './db/connection.js';
+import { pool, isDbAvailable } from './db/connection.js';
+import { seedIfEmpty } from './fixtures/seed.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -16,6 +17,9 @@ export async function buildServer() {
   await fastify.register(cors, { origin: '*' });
 
   fastify.get('/health', async (request, reply) => {
+    if (!isDbAvailable()) {
+      return { status: 'ok', version: '0.1.0', mode: 'standalone', database: 'unavailable' };
+    }
     try {
       await pool.query('SELECT 1');
       return { status: 'ok', version: '0.1.0' };
@@ -43,7 +47,16 @@ export async function buildServer() {
 const start = async () => {
   try {
     const server = await buildServer();
-    await runMigrations();
+    try {
+      await runMigrations();
+      try {
+        await seedIfEmpty();
+      } catch (err) {
+        console.warn('Failed to run seed:', err);
+      }
+    } catch (err) {
+      console.warn('Database unavailable, running in standalone mode with in-memory data');
+    }
     await server.listen({ port: 4001, host: '0.0.0.0' });
     console.log('Server listening on http://localhost:4001');
   } catch (err) {

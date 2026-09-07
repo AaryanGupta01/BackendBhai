@@ -118,30 +118,39 @@ app.post('/api/chaos-state', (req: Request, res: Response) => {
 
 // GET /api/products
 app.get('/api/products', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/products`, 'GET', getForwardHeaders(req));
+    emitTelemetry('/api/products', 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
+    emitTelemetry('/api/products', 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch products from order service', message: err.message });
   }
 });
 
 // GET /api/orders
 app.get('/api/orders', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/orders`, 'GET', getForwardHeaders(req));
+    emitTelemetry('/api/orders', 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
+    emitTelemetry('/api/orders', 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch orders from order service', message: err.message });
   }
 });
 
 // GET /api/orders/:id
 app.get('/api/orders/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const result = await forwardRequest(`${ORDER_SERVICE_URL}/orders/${req.params.id}`, 'GET', getForwardHeaders(req));
+    emitTelemetry(`/api/orders/${req.params.id}`, 'GET', result.statusCode, Date.now() - startTime, false);
     res.status(result.statusCode).json(result.data);
   } catch (err: any) {
+    emitTelemetry(`/api/orders/${req.params.id}`, 'GET', 502, Date.now() - startTime, true);
     res.status(502).json({ error: 'Failed to fetch order', message: err.message });
   }
 });
@@ -191,32 +200,70 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     });
 
     if (authResult.statusCode !== 200) {
+      const duration = Date.now() - startTime;
+      emitTelemetry('/api/orders', 'POST', authResult.statusCode, duration, true);
+
       return res.status(authResult.statusCode).json({
         error: 'Authentication failed',
         details: authResult.data,
         activeChaosMode: activeChaosState.mode,
-        durationMs: Date.now() - startTime
+        durationMs: duration
       });
     }
 
     // 2. Forward to Order Service
     const orderResult = await forwardRequest(`${ORDER_SERVICE_URL}/orders`, 'POST', orderHeaders, orderBody);
 
+    const duration = Date.now() - startTime;
+    emitTelemetry('/api/orders', 'POST', orderResult.statusCode, duration, orderResult.statusCode >= 400);
+
     return res.status(orderResult.statusCode).json({
       ...orderResult.data,
       activeChaosMode: activeChaosState.mode,
-      gatewayDurationMs: Date.now() - startTime
+      gatewayDurationMs: duration
     });
   } catch (err: any) {
+    const duration = Date.now() - startTime;
     console.error('[APIGateway] Error handling /api/orders:', err.message);
+    
+    emitTelemetry('/api/orders', 'POST', 500, duration, true);
+
     return res.status(500).json({
       error: 'Gateway routing failure',
       message: err.message,
       activeChaosMode: activeChaosState.mode,
-      durationMs: Date.now() - startTime
+      durationMs: duration
     });
   }
 });
+
+function emitTelemetry(path: string, method: string, statusCode: number, durationMs: number, isError: boolean) {
+  const payload = {
+    id: Math.random().toString(36).substring(7),
+    method,
+    path,
+    status_code: statusCode,
+    duration_ms: durationMs,
+    start_time: Date.now() - durationMs,
+    end_time: Date.now(),
+    root_service: 'api-gateway',
+    services: ['client', 'api-gateway', 'auth-service', 'order-service'],
+    status: isError ? 'error' : 'ok'
+  };
+
+  const req = http.request({
+    hostname: 'localhost',
+    port: 4001,
+    path: '/api/v1/telemetry/demo-event',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  }, (res) => {
+    res.on('data', () => {}); // consume
+  });
+  req.on('error', () => {}); // ignore
+  req.write(JSON.stringify(payload));
+  req.end();
+}
 
 app.listen(port, () => {
   console.log(`API Gateway listening on port ${port}`);
