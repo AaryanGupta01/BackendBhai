@@ -2,6 +2,12 @@ import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/tel
 import express, { Request, Response } from 'express';
 import { maybeInjectAuthTimeout } from './failures';
 
+// Express header values can be string | string[]; simulation flags are single-valued.
+function normalizeHeader(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
 // Initialize telemetry BEFORE anything else
 initTracing('auth-service');
 patchConsoleLogs('auth-service');
@@ -21,8 +27,12 @@ app.post('/auth/verify', async (req: Request, res: Response) => {
   console.log(`[AuthService] Verifying auth header: "${authHeader.substring(0, 25)}..."`);
 
   try {
-    // S-08: Injects 5s timeout error when token is invalid or malformed
-    await maybeInjectAuthTimeout(authHeader);
+    // S-08: Injects 5s timeout error when token is invalid or malformed.
+    // The gateway forwards the global simulation mode as a header.
+    const simulationHeaders: Record<string, string | undefined> = {
+      'x-simulate-invalid-auth': normalizeHeader(req.headers['x-simulate-invalid-auth'])
+    };
+    await maybeInjectAuthTimeout(authHeader, simulationHeaders);
 
     // Default fast path for valid tokens
     return res.status(200).json({

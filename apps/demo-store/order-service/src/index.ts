@@ -1,7 +1,13 @@
 import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/telemetry/index';
 import express, { Request, Response } from 'express';
 import http from 'http';
-import { maybeInjectOrderDelay, maybeInjectCacheMiss, OrderItem } from './failures';
+import { maybeInjectOrderDelay, maybeInjectCacheMiss, pickRandomSimulation, OrderItem } from './failures';
+
+// Express header values can be string | string[]; simulation flags are single-valued.
+function normalizeHeader(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 // Initialize telemetry BEFORE anything else
 initTracing('order-service');
@@ -134,15 +140,44 @@ app.post('/orders', async (req: Request, res: Response) => {
 
   try {
     // S-07: Injects 3s delay via SELECT pg_sleep(3) if items > 10
-    await maybeInjectOrderDelay(items, db);
+    // The gateway forwards the active global simulation mode as headers.
+    const simSlow = normalizeHeader(req.headers['x-simulate-slow']);
+    const sim503 = normalizeHeader(req.headers['x-simulate-503']);
+    const simRandom = normalizeHeader(req.headers['x-simulate-random']);
+    const simHeaders: Record<string, string | undefined> = {
+      'x-simulate-slow': simSlow,
+      'x-simulate-503': sim503,
+      'x-simulate-random': simRandom,
+      'x-simulate-mode': normalizeHeader(req.headers['x-simulate-mode']),
+      'x-simulate-heavy-order': normalizeHeader(req.headers['x-simulate-heavy-order']),
+      'x-simulate-cache-miss': normalizeHeader(req.headers['x-simulate-cache-miss'])
+    };
+
+    // S-07: Injects 3s delay via SELECT pg_sleep(3) if items > 10 or heavy mode is on
+    await maybeInjectOrderDelay(items, db, simHeaders);
 
     // S-07: Every 30th request forces Redis cache miss / DB fallback
     await maybeInjectCacheMiss(userId, async () => {
       return { cartId: `cart-${userId}`, cached: true };
-    });
+    }, simHeaders);
 
     // Compute total
-    const total = items.reduce((sum: number, item: OrderItem) => {
+    // Random mode picks per-request behaviour, so two identical orders can differ.
+    let mutatedItems: OrderItem[] = items;
+    if (simRandom === 'true') {
+      const choice = pickRandomSimulation(simHeaders);
+      if (choice.heavy) {
+        mutatedItems = items.slice(0);
+        for (let i = 1; i <= 12; i++) {
+          mutatedItems.push({ id: `item-${i}`, name: `Bulk Item #${i}`, qty: 1, price: 10.0 });
+        }
+      }
+      if (choice.cacheMiss) {
+        console.warn('[OrderService] Random simulation forced a cache miss');
+      }
+    }
+
+    const total = mutatedItems.reduce((sum: number, item: OrderItem) => {
       return sum + (Number(item.price) || 29.99) * (Number(item.qty) || 1);
     }, 0);
 
@@ -150,7 +185,7 @@ app.post('/orders', async (req: Request, res: Response) => {
     try {
       await db.query(
         'INSERT INTO orders (id, user_id, items, status, total) VALUES ($1, $2, $3, $4, $5)',
-        [orderId, userId, JSON.stringify(items), 'pending', total]
+        [orderId, userId, JSON.stringify(mutatedItems), 'pending', total]
       );
     } catch (dbErr: any) {
       console.warn('[OrderService] Failed to insert order into DB:', dbErr.message);
@@ -159,7 +194,7 @@ app.post('/orders', async (req: Request, res: Response) => {
     inMemoryOrders.push({
       id: orderId,
       userId,
-      items,
+      items: mutatedItems,
       status: 'pending',
       total,
       createdAt: new Date().toISOString()
@@ -170,6 +205,7 @@ app.post('/orders', async (req: Request, res: Response) => {
     if (req.headers['x-replay-mode']) paymentHeaders['x-replay-mode'] = req.headers['x-replay-mode'] as string;
     if (req.headers['x-simulate-slow']) paymentHeaders['x-simulate-slow'] = req.headers['x-simulate-slow'] as string;
     if (req.headers['x-simulate-503']) paymentHeaders['x-simulate-503'] = req.headers['x-simulate-503'] as string;
+    if (simRandom) paymentHeaders['x-simulate-random'] = simRandom;
     if (req.headers.traceparent) paymentHeaders['traceparent'] = req.headers.traceparent as string;
 
     const paymentRes = await forwardPayment(orderId, total, paymentHeaders);

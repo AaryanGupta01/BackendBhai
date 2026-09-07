@@ -1,5 +1,11 @@
 import express, { Request, Response } from 'express';
 import http from 'http';
+import {
+  getSimulationState,
+  setSimulationState,
+  resetSimulationState,
+  shouldInjectSimulation
+} from './simulation';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,21 +26,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Centralized Chaos State Store
-export interface ChaosState {
-  mode: 'normal' | 'heavy' | 'invalid-auth' | 'slow-payment' | 'payment-503' | 'random';
-  description: string;
-  lastUpdated: string;
-}
+// Global failure simulation is owned by ./simulation.ts
 
-let activeChaosState: ChaosState = {
-  mode: 'normal',
-  description: 'Normal Happy Path (instant ~200ms checkout)',
-  lastUpdated: new Date().toISOString()
-};
 
 // Helper for traceparent propagation
-function getForwardHeaders(req: Request): Record<string, string> {
+function getForwardHeaders(req: Request, opts?: { applyGlobalSimulation?: boolean }): Record<string, string> {
   const headers: Record<string, string> = {
     'content-type': 'application/json'
   };
@@ -53,6 +49,26 @@ function getForwardHeaders(req: Request): Record<string, string> {
   if (req.headers['x-simulate-503']) {
     headers['x-simulate-503'] = req.headers['x-simulate-503'] as string;
   }
+  if (req.headers['x-simulate-mode']) {
+    headers['x-simulate-mode'] = req.headers['x-simulate-mode'] as string;
+  }
+
+  // Translate the active global mode into the per-hop headers the downstream
+  // services already understand. A header on the incoming request wins, so a
+  // single call can still opt out of whatever the simulator has set.
+  if (opts?.applyGlobalSimulation !== false) {
+    const mode = shouldInjectSimulation({
+      'x-simulate-slow': headers['x-simulate-slow'],
+      'x-simulate-503': headers['x-simulate-503'],
+      'x-simulate-mode': headers['x-simulate-mode']
+    });
+    if (mode === 'heavy') headers['x-simulate-heavy-order'] = 'true';
+    else if (mode === 'invalid-auth') headers['x-simulate-invalid-auth'] = 'true';
+    else if (mode === 'payment-503') headers['x-simulate-503'] = 'true';
+    else if (mode === 'slow-payment') headers['x-simulate-slow'] = 'true';
+    else if (mode === 'random') headers['x-simulate-random'] = 'true';
+  }
+
   return headers;
 }
 
@@ -92,28 +108,30 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'api-gateway', timestamp: new Date().toISOString() });
 });
 
-// GET /api/chaos-state
-app.get('/api/chaos-state', (req: Request, res: Response) => {
-  res.json(activeChaosState);
+// Global simulation control surface. Product-agnostic: the Failure Simulator sets a
+// mode here and every request through the gateway picks it up, including orders
+// placed on the storefront.
+app.get('/api/simulation/state', (_req: Request, res: Response) => {
+  res.json(getSimulationState());
 });
 
-// POST /api/chaos-state
-app.post('/api/chaos-state', (req: Request, res: Response) => {
-  const { mode = 'normal' } = req.body;
-  let description = 'Normal Happy Path (instant ~200ms checkout)';
-  if (mode === 'heavy') description = 'Heavy Order (>10 items → 3s DB delay via SELECT pg_sleep)';
-  if (mode === 'invalid-auth') description = 'Auth Timeout (invalid token → 5s timeout & 401 error)';
-  if (mode === 'slow-payment') description = 'Slow Payment Provider (5s external gateway delay)';
-  if (mode === 'payment-503') description = 'Payment Provider 503 (gateway temporarily unavailable)';
-  if (mode === 'random') description = 'Random Real-World Chaos (intermittent delays and errors)';
+app.post('/api/simulation/state', (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    const next = getSimulationState();
+    const updated = setSimulationState({
+      mode: body.mode ?? undefined,
+      active: body.active !== undefined ? Boolean(body.active) : undefined
+    });
+    console.log(`[APIGateway] Global simulation mode: ${next.mode} -> ${updated.mode}`);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: 'Invalid simulation state update', message: err.message });
+  }
+});
 
-  activeChaosState = {
-    mode,
-    description,
-    lastUpdated: new Date().toISOString()
-  };
-  console.log(`[APIGateway] Global Chaos State updated to [${mode}]: ${description}`);
-  res.json({ success: true, chaosState: activeChaosState });
+app.post('/api/simulation/reset', (_req: Request, res: Response) => {
+  res.json(resetSimulationState());
 });
 
 // GET /api/products
@@ -155,43 +173,20 @@ app.get('/api/orders/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/orders (Checkout request flow with dynamic chaos state injection)
+// POST /api/orders (checkout; simulation arrives via forwarded headers)
 app.post('/api/orders', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  console.log(`[APIGateway] Processing POST /api/orders (Active Chaos Mode: ${activeChaosState.mode})`);
+  console.log(`[APIGateway] Processing POST /api/orders (simulation: ${getSimulationState().mode})`);
 
   try {
     const authHeaders = getForwardHeaders(req);
     const orderHeaders = getForwardHeaders(req);
-    let orderBody = { ...req.body };
+    const orderBody = { ...req.body };
 
-    // Apply active chaos state if request did not specify manual overrides
-    if (activeChaosState.mode === 'invalid-auth') {
-      authHeaders['authorization'] = 'Bearer invalid';
-    } else if (!authHeaders['authorization']) {
+    // Simulation is already encoded in the forwarded headers by getForwardHeaders,
+    // and each downstream service decides what to do with it.
+    if (!authHeaders['authorization']) {
       authHeaders['authorization'] = 'Bearer token-user-42';
-    }
-
-    if (activeChaosState.mode === 'heavy') {
-      // Force heavy items payload (> 10 items) to trigger 3s DB delay
-      if (!orderBody.items || orderBody.items.length <= 10) {
-        orderBody.items = [];
-        for (let i = 1; i <= 12; i++) {
-          orderBody.items.push({ id: `item-${i}`, name: `Bulk Hardware Package #${i}`, qty: 1, price: 19.99 });
-        }
-      }
-    } else if (activeChaosState.mode === 'slow-payment') {
-      orderHeaders['x-simulate-slow'] = 'true';
-    } else if (activeChaosState.mode === 'payment-503') {
-      orderHeaders['x-simulate-503'] = 'true';
-    } else if (activeChaosState.mode === 'random') {
-      // 30% slow, 10% 503
-      const rand = Math.random();
-      if (rand < 0.10) {
-        orderHeaders['x-simulate-503'] = 'true';
-      } else if (rand < 0.40) {
-        orderHeaders['x-simulate-slow'] = 'true';
-      }
     }
 
     // 1. Authenticate with Auth Service
@@ -206,7 +201,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
       return res.status(authResult.statusCode).json({
         error: 'Authentication failed',
         details: authResult.data,
-        activeChaosMode: activeChaosState.mode,
+        simulationMode: getSimulationState().mode,
         durationMs: duration
       });
     }
@@ -219,7 +214,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 
     return res.status(orderResult.statusCode).json({
       ...orderResult.data,
-      activeChaosMode: activeChaosState.mode,
+      simulationMode: getSimulationState().mode,
       gatewayDurationMs: duration
     });
   } catch (err: any) {
@@ -231,7 +226,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     return res.status(500).json({
       error: 'Gateway routing failure',
       message: err.message,
-      activeChaosMode: activeChaosState.mode,
+      simulationMode: getSimulationState().mode,
       durationMs: duration
     });
   }
