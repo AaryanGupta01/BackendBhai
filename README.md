@@ -147,8 +147,8 @@ time, so skipping this makes the next step fail with errors like
 pnpm -r build
 ```
 
-This compiles all 11 packages — the platform server, the React UI, the shared types, the
-instrumentation library and the seven demo services. Expect `Done` for each.
+This compiles all 14 packages — the platform server, the React UI, the shared types, the
+instrumentation library and the ten demo services. Expect `Done` for each.
 
 ### Step 4 — Start everything with Docker
 
@@ -174,12 +174,13 @@ Later starts take seconds.
 docker compose -f docker-compose.yml -f docker-compose.demo.yml ps
 ```
 
-You should see **11 containers**, all `Up`, with `postgres` and `redis` marked
+You should see **14 containers**, all `Up`, with `postgres` and `redis` marked
 `(healthy)`:
 
 ```
-amazon-store, api-gateway, auth-service, demo-frontend, devtools-core,
-mock-payment-api, order-service, otel-collector, payment-service, postgres, redis
+amazon-store, api-gateway, auth-service, catalog-service, demo-frontend,
+devtools-core, mock-payment-api, order-service, otel-collector, payment-service,
+postgres, recommendation-service, redis, review-service
 ```
 
 If any container is `Exited` or `Restarting`, jump to
@@ -247,12 +248,15 @@ itself from the services that actually took part.
 
 | Port | What | URL |
 |------|------|-----|
-| 4003 | Amazon-style storefront — click through this | <http://localhost:4003> |
-| 4002 | Failure Simulator — inject faults | <http://localhost:4002> |
+| 4003 | **ArrayMart storefront** — browse, search, buy | <http://localhost:4003> |
+| 4002 | **ArrayMart Ops Console** — load generator + fault injection | <http://localhost:4002> |
 | 3000 | API Gateway (entry point) | <http://localhost:3000> |
 | 3001 | Auth service | <http://localhost:3001> |
 | 3002 | Order service | <http://localhost:3002> |
 | 3003 | Payment service | <http://localhost:3003> |
+| 3004 | Catalog service (Postgres + Redis cache) | <http://localhost:3004> |
+| 3005 | Review service | <http://localhost:3005> |
+| 3006 | Recommendation service (fans out to catalog + review) | <http://localhost:3006> |
 | 4000 | Mock payment provider | <http://localhost:4000> |
 | 6379 | Redis | `redis://localhost:6379` |
 
@@ -597,13 +601,16 @@ backendbhai/
 │   ├── devtools-ui/            # React UI, served by devtools-core on :4001
 │   ├── telemetry-collector/    # OpenTelemetry instrumentation library
 │   └── demo-store/             # Example product being monitored
-│       ├── api-gateway/        # :3000  entry point
-│       ├── auth-service/       # :3001
-│       ├── order-service/      # :3002
-│       ├── payment-service/    # :3003
-│       ├── mock-payment-api/   # :4000  external provider
-│       ├── frontend/           # :4002  failure simulator
-│       └── amazon-store/       # :4003  storefront
+│       ├── api-gateway/            # :3000  entry point
+│       ├── auth-service/           # :3001
+│       ├── order-service/          # :3002
+│       ├── payment-service/        # :3003
+│       ├── catalog-service/        # :3004  products, search, Redis cache
+│       ├── review-service/         # :3005  product reviews
+│       ├── recommendation-service/ # :3006  fans out to catalog + review
+│       ├── mock-payment-api/       # :4000  external provider
+│       ├── frontend/               # :4002  ArrayMart Ops Console
+│       └── amazon-store/           # :4003  ArrayMart storefront
 ├── packages/shared/            # Shared TypeScript types
 ├── infrastructure/             # Collector config, database init
 ├── scripts/                    # Seeding, traffic generation, verification
@@ -649,3 +656,126 @@ These are enforced, not aspirational. They are why you can trust what the UI sho
 ## License
 
 Hackathon project — not licensed for production use.
+
+---
+
+## Analyzing Any External Project
+
+BackendBhai is a language-agnostic observability platform. It does not require proprietary SDKs to monitor your project; instead, it relies entirely on the open standard **OpenTelemetry (OTEL)**. 
+
+If your application can emit standard OpenTelemetry traces, BackendBhai can analyze it. This guide covers how to instrument any project and connect it to BackendBhai.
+
+### Step 1: Run BackendBhai
+
+Before instrumenting your application, ensure BackendBhai's platform is running. It will expose an OpenTelemetry Collector on your machine.
+
+1. Clone and build the BackendBhai repository.
+2. Start the core platform (without the demo products):
+   ```bash
+   docker compose up -d --build postgres redis devtools-core otel-collector
+   ```
+3. BackendBhai is now listening for traces on:
+   - **HTTP (OTLP):** `http://localhost:4318`
+   - **gRPC (OTLP):** `localhost:4317`
+
+### Step 2: Instrument Your Project
+
+You need to add OpenTelemetry auto-instrumentation to your project. Auto-instrumentation automatically tracks API requests, database queries, and external HTTP calls without requiring you to manually write tracing code.
+
+Choose your language below:
+
+#### 🟢 Node.js (Express, Fastify, NestJS)
+
+1. **Install dependencies:**
+   ```bash
+   npm install @opentelemetry/sdk-node @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-trace-otlp-http
+   ```
+2. **Create `telemetry.js` in your project root:**
+   ```javascript
+   const { NodeSDK } = require('@opentelemetry/sdk-node');
+   const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+   const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+
+   const sdk = new NodeSDK({
+     traceExporter: new OTLPTraceExporter(),
+     instrumentations: [getNodeAutoInstrumentations()]
+   });
+
+   sdk.start();
+   ```
+3. **Start your app by preloading the script:**
+   ```bash
+   node --require ./telemetry.js your-app.js
+   ```
+
+#### 🐍 Python (Django, FastAPI, Flask)
+
+1. **Install dependencies:**
+   ```bash
+   pip install opentelemetry-distro opentelemetry-exporter-otlp
+   ```
+2. **Install auto-instrumentation for your specific libraries:**
+   ```bash
+   opentelemetry-bootstrap -a install
+   ```
+3. **Start your app using the OTEL wrapper:**
+   ```bash
+   opentelemetry-instrument python your_app.py
+   ```
+   *(For uvicorn/fastapi, use `opentelemetry-instrument uvicorn main:app`)*
+
+#### ☕ Java (Spring Boot, Tomcat)
+
+1. **Download the OpenTelemetry Java Agent:**
+   ```bash
+   wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+   ```
+2. **Start your app with the Java Agent attached:**
+   ```bash
+   java -javaagent:path/to/opentelemetry-javaagent.jar -jar your-app.jar
+   ```
+
+#### 🐹 Go
+
+For Go, OpenTelemetry requires slightly more manual setup since it's a compiled language. You will need to use `go.opentelemetry.io/otel` and standard instrumentation wrappers for your HTTP router (e.g., `net/http`, `gin`, `fiber`). Refer to the [official Go OpenTelemetry docs](https://opentelemetry.io/docs/languages/go/getting-started/).
+
+### Step 3: Configure the Connection
+
+Once your app is instrumented, you need to tell it **what its name is** and **where to send the data**. You do this via standard OpenTelemetry environment variables.
+
+Run your application with the following variables set:
+
+```bash
+# Give your application a recognizable name in the BackendBhai topology graph
+export OTEL_SERVICE_NAME="my-awesome-project"
+
+# Point to BackendBhai's OpenTelemetry Collector (Default HTTP port is 4318)
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+
+# Start your application here...
+```
+
+> **Note on Remote Deployments:** If your project is deployed on a remote server (e.g., AWS, Vercel) and BackendBhai is running locally on your laptop, `localhost:4318` will not work. You must expose your BackendBhai collector to the internet (e.g., via `ngrok`) or set the endpoint to your machine's public IP address.
+
+### Step 4: Analyze Your APIs!
+
+1. Open BackendBhai in your browser at **http://localhost:4001**.
+2. Trigger some traffic in your application (click around the UI, send Postman requests, run automated tests).
+3. Watch the traces stream into BackendBhai in real-time. The platform will automatically reverse-engineer your APIs, draw a topology map, and show you exact latency breakdowns (Self Time vs. Total Time) for every endpoint and database query.
+
+### Optional: Proactive API Discovery
+
+BackendBhai doesn't just passively wait for traffic; it can proactively map your APIs if you provide an OpenAPI (Swagger) spec.
+
+If your project has an OpenAPI spec, tell BackendBhai about it:
+
+```bash
+curl -X POST http://localhost:4001/api/v1/discovery/openapi \
+  -H "Content-Type: application/json" \
+  -d '{
+        "serviceName": "my-awesome-project", 
+        "specUrl": "http://localhost:3000/openapi.json"
+      }'
+```
+
+BackendBhai will ingest all your endpoints and make them available for the **Endpoint Probing** feature inside the UI, allowing you to instantly test and analyze endpoints that haven't received natural traffic yet.

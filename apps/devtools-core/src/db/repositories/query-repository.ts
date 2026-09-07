@@ -392,11 +392,21 @@ export class QueryRepository {
       pool.query(edgesQuery)
     ]);
 
+    // A service that emits root spans looks like an entry point, but anything called
+    // directly (a health probe on its own port, say) also produces root spans. The
+    // real entry point is the one nothing else calls, so inbound edges decide it.
+    const calledByOthers = new Set(edgesRes.rows.map((e: any) => e.target));
+
     return {
       nodes: nodesRes.rows.map((n: any) => ({
         id: n.id,
         label: n.label,
-        kind: n.kind || null,
+        kind:
+          n.kind === 'gateway' || n.kind === 'service'
+            ? calledByOthers.has(n.id)
+              ? 'service'
+              : 'gateway'
+            : n.kind || null,
         spanCount: n.span_count,
         errorCount: n.error_count,
         avgDurationMs: n.avg_duration_ms,

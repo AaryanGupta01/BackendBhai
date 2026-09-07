@@ -37,6 +37,9 @@ const FLOW_STROKE: Record<'error' | 'slow' | 'ok', string> = {
 
 type StatusFilter = 'all' | 'error' | 'success';
 
+/** Axis-aligned box used for label placement collision tests. */
+interface Rect { x: number; y: number; w: number; h: number }
+
 // Offered thresholds for "slow". Chosen as round numbers rather than derived, since
 // what counts as slow is a judgement the operator makes, not something telemetry says.
 const SLOW_THRESHOLDS = [
@@ -355,9 +358,29 @@ export default function App() {
   }, [hoveredNodeId, graphEdges]);
 
   // Geometry and per-edge state, computed once and shared by the two SVG layers:
-  // lines are drawn beneath the node cards, labels above them, so a label is never
-  // hidden behind a card when an edge is short.
+  // lines are drawn beneath the node cards, labels above them.
+  //
+  // Labels used to sit at each edge's exact midpoint, which collided with node cards
+  // on short edges and with each other wherever edges converged on the same node.
+  // Each label now walks along its own curve looking for a spot that clears both.
   const renderableEdges = useMemo(() => {
+    const overlaps = (a: Rect, b: Rect) =>
+      a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+    // Card centres are translated by -50%, so the rect is centred on (x, y).
+    const nodeRects: Rect[] = graphNodes.map((n) => ({
+      x: n.x - canvas.minX - NODE_W / 2,
+      y: n.y - canvas.minY - NODE_H / 2,
+      w: NODE_W,
+      h: NODE_H
+    }));
+    const placed: Rect[] = [];
+
+    // Positions to try, in order of preference: the midpoint first, then further
+    // along the curve either way, then lifted clear of it.
+    const CURVE_POSITIONS = [0.5, 0.4, 0.6, 0.32, 0.68, 0.25, 0.75];
+    const LIFTS = [0, -20, 20, -38, 38];
+
     return graphEdges.flatMap((edge) => {
       const s = graphNodes.find((n) => n.id === edge.source);
       const t = graphNodes.find((n) => n.id === edge.target);
@@ -368,6 +391,17 @@ export default function App() {
       const tx = t.x - canvas.minX;
       const ty = t.y - canvas.minY;
       const dx = Math.abs(tx - sx);
+
+      // Control points of the drawn curve, so label positions land on the line itself.
+      const c1x = sx + dx / 2, c1y = sy;
+      const c2x = tx - dx / 2, c2y = ty;
+      const pointAt = (u: number) => {
+        const v = 1 - u;
+        return {
+          x: v * v * v * sx + 3 * v * v * u * c1x + 3 * v * u * u * c2x + u * u * u * tx,
+          y: v * v * v * sy + 3 * v * v * u * c1y + 3 * v * u * u * c2y + u * u * u * ty
+        };
+      };
 
       const isHighlighted = selectedTraceId
         ? edge.inSelectedTrace
@@ -385,18 +419,44 @@ export default function App() {
           : hopMs !== undefined && hopMs >= SLOW_HOP_MS
           ? 'slow'
           : 'ok';
+      const showsHop = edge.inSelectedTrace && hopMs !== undefined;
+
+      const label = showsHop
+        ? `${hopMs}ms`
+        : `${edge.avgDurationMs}ms avg${edge.errorCount > 0 ? ` · ${edge.errorCount} err` : ''}`;
+      // Monospace at 11px runs about 6.3px per character.
+      const chipW = label.length * 6.3 + 10;
+      const chipH = 16;
+
+      // Score every candidate and keep the best. A card collision costs more than a
+      // label collision, because text over a card is what actually becomes unreadable.
+      let best: Rect | null = null;
+      let bestScore = Infinity;
+      outer: for (const u of CURVE_POSITIONS) {
+        const p = pointAt(u);
+        for (const lift of LIFTS) {
+          const rect: Rect = { x: p.x - chipW / 2, y: p.y - 21 + lift, w: chipW, h: chipH };
+          let score = 0;
+          for (const nr of nodeRects) if (overlaps(rect, nr)) score += 10;
+          for (const pr of placed) if (overlaps(rect, pr)) score += 6;
+          // Prefer staying near the middle of the edge when nothing collides.
+          score += Math.abs(u - 0.5) * 2 + Math.abs(lift) * 0.02;
+          if (score < bestScore) { bestScore = score; best = rect; }
+          if (score < 1) break outer;
+        }
+      }
+      const chip = best!;
+      placed.push(chip);
 
       return [{
         edge,
-        // A cubic bezier with these control points has its midpoint at the plain
-        // midpoint of the endpoints, so a label placed there sits on the curve.
-        d: `M ${sx} ${sy} C ${sx + dx / 2} ${sy} ${tx - dx / 2} ${ty} ${tx} ${ty}`,
-        mx: (sx + tx) / 2,
-        my: (sy + ty) / 2,
+        d: `M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`,
+        chip,
+        label,
         isDimmed,
         flowState,
         hopMs,
-        showsHop: edge.inSelectedTrace && hopMs !== undefined
+        showsHop
       }];
     });
   }, [graphEdges, graphNodes, canvas, selectedTraceId, hoveredNodeId, connectedNodes]);
@@ -684,13 +744,28 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="mt-2.5 space-y-0.5">
-                      <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
-                        {node.spanCount > 0 ? `${node.avgDurationMs}ms avg` : 'no requests'}
-                      </div>
-                      {node.spanCount > 0 && (
-                        <div className="text-[10px] font-mono text-earth-muted">
-                          p95 {node.p95DurationMs}ms · {node.spanCount} reqs
-                        </div>
+                      {node.spanCount > 0 ? (
+                        <>
+                          <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
+                            {node.avgDurationMs}ms avg
+                          </div>
+                          <div className="text-[10px] font-mono text-earth-muted">
+                            p95 {node.p95DurationMs}ms · {node.spanCount} reqs
+                          </div>
+                        </>
+                      ) : node.inboundCalls > 0 ? (
+                        // Uninstrumented dependency: report what its callers measured
+                        // rather than claiming it is idle.
+                        <>
+                          <div className={`text-xs font-mono font-bold ${node.inboundErrors > 0 ? 'text-earth-error' : 'text-earth-success'}`}>
+                            {node.inboundAvgMs}ms avg
+                          </div>
+                          <div className="text-[10px] font-mono text-earth-muted">
+                            {node.inboundCalls} calls in · as seen by callers
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-xs font-mono font-bold text-earth-muted">no traffic yet</div>
                       )}
                     </div>
                   )}
@@ -705,18 +780,27 @@ export default function App() {
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ zIndex: 20 }}
             >
-              {renderableEdges.map(({ edge, mx, my, isDimmed, showsHop, hopMs, flowState }) => (
-                <text
+              {renderableEdges.map(({ edge, chip, isDimmed, showsHop, hopMs, flowState }) => (
+                <g
                   key={edge.id}
-                  x={mx}
-                  y={my - 9}
+                  className={`transition-opacity duration-300 ${isDimmed ? 'opacity-25' : 'opacity-100'}`}
+                >
+                {/* A solid chip, not just a stroke halo: where a label does end up over
+                    a card, the card's own text must not show through it. */}
+                <rect
+                  x={chip.x}
+                  y={chip.y}
+                  width={chip.w}
+                  height={chip.h}
+                  rx={3}
+                  className="fill-earth-base stroke-earth-border"
+                  strokeWidth="1"
+                />
+                <text
+                  x={chip.x + chip.w / 2}
+                  y={chip.y + 12}
                   textAnchor="middle"
-                  stroke="var(--color-earth-base)"
-                  strokeWidth="4"
-                  paintOrder="stroke"
-                  className={`text-[11px] font-mono font-semibold transition-opacity duration-300 ${
-                    isDimmed ? 'opacity-25' : 'opacity-100'
-                  }`}
+                  className="text-[11px] font-mono font-semibold"
                 >
                   {showsHop ? (
                     // Inspecting one request: report that request's own hop time,
@@ -741,6 +825,7 @@ export default function App() {
                     </>
                   )}
                 </text>
+                </g>
               ))}
             </svg>
 
@@ -787,7 +872,7 @@ export default function App() {
                     <div className="p-3 bg-earth-base text-xs font-mono text-earth-text space-y-1">
                       <div>service: {selectedNode.label}</div>
                       <div>kind: {selectedNode.kind || 'unclassified'}</div>
-                      <div>requests: {selectedNode.spanCount}</div>
+                      <div>{selectedNode.spanCount > 0 ? `requests: ${selectedNode.spanCount}` : `inbound calls: ${selectedNode.inboundCalls}`}</div>
                       <div>avg: {ms(selectedNode.avgDurationMs)} · p95: {ms(selectedNode.p95DurationMs)}</div>
                       {selectedNode.traceSelfMs !== undefined && (
                         <div>this trace: {ms(selectedNode.traceSelfMs)} self / {ms(selectedNode.traceTotalMs)} total</div>

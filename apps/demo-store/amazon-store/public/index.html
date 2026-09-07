@@ -1,590 +1,801 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amazon.com: Online Shopping for Electronics, Hardware & More</title>
-  <style>
-    :root {
-      --amz-dark: #131921;
-      --amz-subnav: #232f3e;
-      --amz-yellow: #ffd814;
-      --amz-yellow-hover: #f7ca00;
-      --amz-orange: #f08804;
-      --amz-link: #007185;
-      --amz-price: #b12704;
-      --amz-border: #d5d9d9;
-      --amz-bg: #eaeded;
-      --amz-card: #ffffff;
-      --amz-prime: #00a8e1;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Amazon Ember", Arial, sans-serif; }
-    body { background: var(--amz-bg); color: #0f1111; min-height: 100vh; font-size: 14px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArrayMart — Everything for the desk you work at</title>
+<style>
+  :root{
+    --navy:#131A2B; --navy-2:#1D2740; --amber:#F2A03D; --amber-dark:#D9862A;
+    --ink:#131A2B; --muted:#68718A; --line:#DFE3EC; --bg:#F3F5F9; --card:#FFFFFF;
+    --ok:#1E874B; --warn:#B7791F; --bad:#C0392B; --link:#1F5FCC;
+    --shadow:0 1px 2px rgba(19,26,43,.06), 0 4px 14px rgba(19,26,43,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",Inter,-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.5}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;border:none;background:none}
+  a{color:var(--link);text-decoration:none}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+  .hide{display:none !important}
 
-    /* Top Nav */
-    .header-top { background: var(--amz-dark); color: white; display: flex; align-items: center; padding: 8px 16px; gap: 16px; position: sticky; top: 0; z-index: 100; }
-    .logo-box { display: flex; align-items: baseline; cursor: pointer; padding: 4px 8px; border: 1px solid transparent; border-radius: 2px; }
-    .logo-box:hover { border-color: white; }
-    .amz-logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -1px; color: white; }
-    .amz-logo span { color: #ff9900; }
-    .amz-dot { font-size: 0.8rem; color: #ccc; margin-left: 2px; }
+  /* ── Header ─────────────────────────────────────────── */
+  header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:60}
+  .bar{display:flex;align-items:center;gap:18px;padding:10px 0}
+  .logo{display:flex;align-items:center;gap:9px;cursor:pointer;padding:6px 8px;border-radius:6px;border:1px solid transparent}
+  .logo:hover{border-color:rgba(255,255,255,.35)}
+  .logo-text{font-size:1.28rem;font-weight:700;letter-spacing:-.4px;color:#fff}
+  .logo-text span{color:var(--amber)}
+  .deliver{display:flex;flex-direction:column;font-size:.7rem;color:#AEB6C9;padding:4px 8px;border-radius:6px;border:1px solid transparent;cursor:pointer}
+  .deliver:hover{border-color:rgba(255,255,255,.35)}
+  .deliver b{color:#fff;font-size:.8rem}
+  .searchbar{flex:1;display:flex;height:40px;border-radius:7px;overflow:hidden;min-width:220px}
+  .searchbar select{background:#E8EBF2;border:none;padding:0 9px;font-size:.75rem;outline:none;cursor:pointer;max-width:130px}
+  .searchbar input{flex:1;border:none;padding:0 13px;font-size:.95rem;outline:none;min-width:0}
+  .searchbar button{background:var(--amber);width:48px;display:grid;place-items:center;font-size:1.05rem}
+  .searchbar button:hover{background:var(--amber-dark)}
+  .navbtn{display:flex;flex-direction:column;font-size:.7rem;color:#AEB6C9;padding:4px 8px;border-radius:6px;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+  .navbtn:hover{border-color:rgba(255,255,255,.35)}
+  .navbtn b{color:#fff;font-size:.82rem}
+  .cartbtn{display:flex;align-items:end;gap:5px;color:#fff;padding:4px 8px;border-radius:6px;border:1px solid transparent;cursor:pointer;position:relative}
+  .cartbtn:hover{border-color:rgba(255,255,255,.35)}
+  .cart-count{background:var(--amber);color:var(--navy);font-weight:800;font-size:.78rem;border-radius:999px;padding:0 7px;min-width:21px;text-align:center}
+  .subnav{background:var(--navy-2);display:flex;align-items:center;gap:4px;padding:7px 0;font-size:.83rem;overflow-x:auto}
+  .subnav button{color:#D6DBE8;padding:5px 11px;border-radius:5px;white-space:nowrap}
+  .subnav button:hover{background:rgba(255,255,255,.10)}
+  .subnav button.on{background:rgba(255,255,255,.16);color:#fff;font-weight:600}
+  .sysline{margin-left:auto;display:flex;align-items:center;gap:12px;padding-left:14px}
+  .pill{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px 11px;font-size:.72rem;font-weight:600;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:#3FCB7F}
+  .sysline a{color:var(--amber);font-weight:700;font-size:.75rem;white-space:nowrap}
 
-    .deliver-box { display: flex; flex-direction: column; cursor: pointer; padding: 4px 8px; border: 1px solid transparent; border-radius: 2px; font-size: 0.75rem; color: #ccc; }
-    .deliver-box:hover { border-color: white; }
-    .deliver-box strong { color: white; font-size: 0.85rem; }
+  /* ── Layout ─────────────────────────────────────────── */
+  main{padding:22px 0 60px;min-height:60vh}
+  .crumbs{font-size:.78rem;color:var(--muted);margin-bottom:14px}
+  .crumbs span{cursor:pointer;color:var(--link)}
+  h1{font-size:1.6rem;letter-spacing:-.4px;margin-bottom:4px}
+  h2{font-size:1.18rem;letter-spacing:-.2px}
+  .sectionhead{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 12px;gap:16px}
+  .sectionhead .more{font-size:.8rem;cursor:pointer;color:var(--link);font-weight:600}
 
-    .search-bar { flex: 1; display: flex; height: 40px; border-radius: 4px; overflow: hidden; }
-    .search-select { background: #e6e6e6; border: none; padding: 0 10px; font-size: 0.75rem; border-right: 1px solid #ddd; outline: none; cursor: pointer; }
-    .search-input { flex: 1; border: none; padding: 0 12px; font-size: 0.95rem; outline: none; }
-    .search-btn { background: #febd69; border: none; width: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
-    .search-btn:hover { background: #f3a847; }
+  .hero{background:linear-gradient(105deg,var(--navy) 0%,#26375C 55%,#3B5488 100%);color:#fff;border-radius:12px;padding:34px 38px;display:flex;justify-content:space-between;align-items:center;gap:30px;flex-wrap:wrap}
+  .hero h1{font-size:2rem;margin-bottom:8px;max-width:19ch}
+  .hero p{color:#C7CFE2;max-width:52ch}
+  .hero .cta{background:var(--amber);color:var(--navy);font-weight:800;padding:11px 22px;border-radius:7px;margin-top:16px;font-size:.92rem}
+  .hero .cta:hover{background:var(--amber-dark)}
+  .hero-badge{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:16px 20px;text-align:center;min-width:150px}
+  .hero-badge b{display:block;font-size:1.8rem;color:var(--amber)}
+  .hero-badge span{font-size:.74rem;color:#C7CFE2}
 
-    .nav-account { padding: 4px 8px; border: 1px solid transparent; border-radius: 2px; font-size: 0.75rem; color: #ccc; cursor: pointer; }
-    .nav-account:hover { border-color: white; }
-    .nav-account strong { color: white; font-size: 0.85rem; display: block; }
+  .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:20px}
+  .cat{background:var(--card);border-radius:10px;padding:18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s}
+  .cat:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(19,26,43,.12)}
+  .cat .emoji{font-size:1.9rem}
+  .cat b{display:block;margin-top:9px;font-size:.95rem}
+  .cat span{font-size:.76rem;color:var(--muted)}
 
-    .nav-cart { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid transparent; border-radius: 2px; cursor: pointer; color: white; text-decoration: none; position: relative; }
-    .nav-cart:hover { border-color: white; }
-    .cart-icon { font-size: 1.5rem; }
-    .cart-count { background: #f08804; color: #111; font-weight: 800; font-size: 0.85rem; border-radius: 9999px; padding: 0 6px; position: absolute; top: 2px; left: 16px; }
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:16px}
+  .rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);gap:16px;overflow-x:auto;padding-bottom:8px}
+  .p{background:var(--card);border-radius:10px;padding:15px;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative}
+  .p:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(19,26,43,.12)}
+  .p .img{height:132px;display:grid;place-items:center;font-size:3.3rem;background:#F7F9FC;border-radius:8px;margin-bottom:11px}
+  .p .brand{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+  .p .name{font-size:.9rem;font-weight:600;line-height:1.35;margin:3px 0 6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .stars{color:#F0A32E;font-size:.8rem;display:flex;align-items:center;gap:5px;margin-bottom:7px}
+  .stars small{color:var(--muted)}
+  .price{font-size:1.22rem;font-weight:700;margin-top:auto}
+  .price sup{font-size:.72rem;font-weight:600;top:-.5em}
+  .stocknote{font-size:.74rem;margin-top:3px}
+  .in{color:var(--ok)} .low{color:var(--warn)} .out{color:var(--bad)}
+  .addbtn{margin-top:11px;background:var(--amber);color:var(--navy);font-weight:700;padding:8px;border-radius:999px;font-size:.85rem;width:100%}
+  .addbtn:hover{background:var(--amber-dark)}
 
-    /* Sub Nav */
-    .subnav { background: var(--amz-subnav); color: white; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
-    .subnav-left { display: flex; gap: 16px; align-items: center; }
-    .subnav-item { cursor: pointer; padding: 4px 6px; border: 1px solid transparent; border-radius: 2px; }
-    .subnav-item:hover { border-color: white; }
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;background:var(--card);border-radius:9px;padding:11px 15px;box-shadow:var(--shadow)}
+  .toolbar select{border:1px solid var(--line);border-radius:6px;padding:6px 9px;background:#fff}
+  .toolbar .count{color:var(--muted);font-size:.83rem}
 
-    /* Chaos Sync Pill */
-    .chaos-pill { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25); border-radius: 9999px; padding: 3px 12px; font-size: 0.78rem; display: flex; align-items: center; gap: 8px; font-weight: 600; }
-    .chaos-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
-    .link-control { color: #febd69; text-decoration: none; margin-left: 6px; font-weight: bold; }
-    .link-control:hover { text-decoration: underline; }
+  /* ── Product detail ─────────────────────────────────── */
+  .pdp{display:grid;grid-template-columns:1.05fr 1.25fr .8fr;gap:24px;align-items:start}
+  @media(max-width:980px){.pdp{grid-template-columns:1fr}}
+  .panel{background:var(--card);border-radius:11px;padding:20px;box-shadow:var(--shadow)}
+  .pdp .gallery{height:330px;display:grid;place-items:center;font-size:8rem;background:#F7F9FC;border-radius:10px}
+  .pdp h1{font-size:1.42rem;line-height:1.3}
+  .buybox .price{font-size:1.75rem;margin:0 0 4px}
+  .qtyrow{display:flex;align-items:center;gap:9px;margin:14px 0}
+  .qtyrow button{width:30px;height:30px;border:1px solid var(--line);border-radius:6px;font-size:1.05rem;background:#fff}
+  .qtyrow b{min-width:26px;text-align:center}
+  .buybox .addbtn{border-radius:8px;padding:11px}
+  .buynow{margin-top:8px;background:var(--navy);color:#fff;font-weight:700;padding:11px;border-radius:8px;width:100%}
+  .buynow:hover{background:var(--navy-2)}
+  .kv{display:flex;justify-content:space-between;font-size:.83rem;padding:6px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv span{color:var(--muted)}
 
-    /* Hero */
-    .hero-banner { background: linear-gradient(180deg, #131921 0%, #232f3e 70%, var(--amz-bg) 100%); color: white; padding: 24px 20px 60px; display: flex; justify-content: space-between; align-items: center; }
-    .hero-text h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 6px; }
-    .hero-text p { font-size: 1rem; color: #ddd; }
-    .prime-tag { background: #00a8e1; color: white; font-weight: 800; font-size: 0.75rem; padding: 2px 8px; border-radius: 3px; }
+  .review{border-bottom:1px solid var(--line);padding:13px 0}
+  .review:last-child{border-bottom:none}
+  .review .rt{font-weight:700;font-size:.9rem}
+  .review .ra{font-size:.75rem;color:var(--muted);margin:2px 0 5px}
+  .review p{font-size:.86rem;color:#414B63}
 
-    /* Products Grid */
-    .main-content { max-width: 1350px; margin: -40px auto 40px; padding: 0 16px; position: relative; z-index: 10; }
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    
-    .product-card { background: white; border-radius: 4px; padding: 18px; display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.08); transition: transform 0.15s; position: relative; }
-    .product-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-    .badge-choice { background: #232f3e; color: white; font-size: 0.65rem; padding: 3px 8px; border-radius: 2px; width: fit-content; margin-bottom: 10px; font-weight: 600; }
-    .product-img-box { height: 160px; display: flex; align-items: center; justify-content: center; font-size: 4rem; background: #f8fafc; border-radius: 4px; margin-bottom: 12px; }
-    .product-title { font-size: 0.95rem; font-weight: 600; line-height: 1.3; color: #0f1111; margin-bottom: 6px; cursor: pointer; }
-    .product-title:hover { color: #c45500; }
-    .product-rating { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #007185; margin-bottom: 8px; }
-    .stars { color: #ffa41c; font-size: 0.95rem; }
-    .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
-    .price-symbol { font-size: 0.8rem; vertical-align: top; color: var(--amz-price); }
-    .price-val { font-size: 1.4rem; font-weight: 700; color: var(--amz-price); }
-    .price-orig { font-size: 0.8rem; color: #565959; text-decoration: line-through; }
-    .prime-delivery { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #565959; margin-bottom: 14px; }
-    .prime-delivery strong { color: #0f1111; }
-    
-    .card-actions { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
-    .btn-cart { background: var(--amz-yellow); border: 1px solid #fcd200; border-radius: 20px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; }
-    .btn-cart:hover { background: var(--amz-yellow-hover); }
-    .btn-buy { background: #ffa41c; border: 1px solid #ff8f00; border-radius: 20px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; }
-    .btn-buy:hover { background: #fa8900; }
+  /* ── Cart & checkout ────────────────────────────────── */
+  .cartgrid{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start}
+  @media(max-width:900px){.cartgrid{grid-template-columns:1fr}}
+  .line{display:flex;gap:15px;padding:15px 0;border-bottom:1px solid var(--line)}
+  .line:last-child{border-bottom:none}
+  .line .img{width:82px;height:82px;display:grid;place-items:center;font-size:2.4rem;background:#F7F9FC;border-radius:8px;flex:none}
+  .line .meta{flex:1;min-width:0}
+  .line .nm{font-weight:600;margin-bottom:3px}
+  .rm{color:var(--link);font-size:.8rem;background:none}
+  .totals .row{display:flex;justify-content:space-between;padding:7px 0;font-size:.9rem}
+  .totals .grand{font-size:1.2rem;font-weight:800;border-top:1px solid var(--line);margin-top:8px;padding-top:12px}
+  .steps{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .step{flex:1;min-width:130px;padding:11px 14px;border-radius:9px;background:var(--card);box-shadow:var(--shadow);font-size:.85rem;border-left:3px solid var(--line)}
+  .step.on{border-left-color:var(--amber);font-weight:700}
+  .step.done{border-left-color:var(--ok);color:var(--muted)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:9px 11px;background:#fff;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--link)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .placebtn{background:var(--amber);color:var(--navy);font-weight:800;padding:13px;border-radius:8px;width:100%;font-size:1rem}
+  .placebtn:hover{background:var(--amber-dark)}
+  .placebtn:disabled{opacity:.55;cursor:not-allowed}
 
-    /* Checkout Drawer / Modal */
-    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; justify-content: center; align-items: center; padding: 16px; }
-    .modal-backdrop.open { display: flex; }
-    .checkout-modal { background: white; width: 100%; max-width: 600px; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
-    @keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .modal-header { background: #f0f2f2; border-bottom: 1px solid var(--amz-border); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h3 { font-size: 1.1rem; }
-    .btn-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #555; }
-    .modal-body { padding: 20px; max-height: 75vh; overflow-y: auto; }
-    
-    .review-section { border-bottom: 1px solid var(--amz-border); padding-bottom: 14px; margin-bottom: 14px; }
-    .review-section h4 { font-size: 0.95rem; margin-bottom: 6px; color: #333; }
-    .review-text { font-size: 0.85rem; color: #565959; line-height: 1.4; }
-    
-    .order-summary-box { background: #f7fafa; border: 1px solid var(--amz-border); border-radius: 6px; padding: 14px; margin-bottom: 16px; }
-    .summary-line { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; color: #565959; }
-    .summary-total { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; color: var(--amz-price); border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; }
-    
-    .btn-place-order { background: var(--amz-yellow); border: 1px solid #a88734; border-radius: 8px; width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 2px 5px rgba(213,217,217,.5); }
-    .btn-place-order:hover { background: var(--amz-yellow-hover); }
+  .alert{border-radius:9px;padding:14px 16px;margin-bottom:16px;font-size:.88rem;border:1px solid}
+  .alert.ok{background:#E9F7EF;border-color:#B7E1C6;color:#14663A}
+  .alert.err{background:#FDEDEC;border-color:#F5C6C2;color:#93261C}
+  .alert b{display:block;margin-bottom:3px}
+  .alert code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem}
 
-    /* Dynamic Checkout Feedback Alerts */
-    .spinner-box { display: none; text-align: center; padding: 20px 0; }
-    .spinner-box.active { display: block; }
-    .amz-spinner { width: 36px; height: 36px; border: 3px solid #ddd; border-top-color: #f08804; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner-msg { font-size: 0.9rem; font-weight: 600; color: #333; }
-    
-    .feedback-alert { display: none; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
-    .feedback-alert.active { display: block; }
-    .alert-success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
-    .alert-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
-    .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-  </style>
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty .big{font-size:3rem;margin-bottom:10px}
+  .spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .skeleton{background:linear-gradient(90deg,#EDF0F5 25%,#F6F8FB 50%,#EDF0F5 75%);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:10px;height:266px}
+  @keyframes sk{to{background-position:-200% 0}}
+
+  /* ── Network ticker: ties the storefront to the monitor ─ */
+  .ticker{position:fixed;right:14px;bottom:14px;width:334px;background:var(--navy);color:#D6DBE8;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.3);z-index:70;overflow:hidden;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .ticker h6{background:var(--navy-2);padding:8px 12px;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;font-weight:700}
+  .ticker h6 button{color:#AEB6C9;font-size:.9rem}
+  .ticker ul{list-style:none;max-height:172px;overflow-y:auto;padding:5px 0}
+  .ticker li{display:flex;gap:8px;padding:3px 12px;font-size:.7rem;white-space:nowrap}
+  .ticker li .m{font-weight:700;min-width:34px}
+  .ticker li .u{flex:1;overflow:hidden;text-overflow:ellipsis;color:#AEB6C9}
+  .ticker li .s{font-weight:700}
+  .s2{color:#3FCB7F}.s4,.s5{color:#FF7B72}
+  footer{background:var(--navy);color:#8E97AD;padding:26px 0;font-size:.8rem;text-align:center}
+</style>
 </head>
 <body>
 
-  <!-- Amazon Top Navigation -->
-  <header class="header-top">
-    <div class="logo-box" onclick="location.reload()">
-      <div class="amz-logo">amazon<span>.com</span><span class="amz-dot">Prime</span></div>
+<header>
+  <div class="wrap bar">
+    <div class="logo" onclick="go('home')" title="ArrayMart home">
+      <!-- Brackets around a 2x2 grid: an array, and a shelf of goods. -->
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <path d="M11.5 4.5H6.5C5.4 4.5 4.5 5.4 4.5 6.5V27.5C4.5 28.6 5.4 29.5 6.5 29.5H11.5"
+              stroke="#F2A03D" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M22.5 4.5H27.5C28.6 4.5 29.5 5.4 29.5 6.5V27.5C29.5 28.6 28.6 29.5 27.5 29.5H22.5"
+              stroke="#F2A03D" stroke-width="2.6" stroke-linecap="round"/>
+        <rect x="11.6" y="11.6" width="4.9" height="4.9" rx="1.1" fill="#fff"/>
+        <rect x="17.5" y="11.6" width="4.9" height="4.9" rx="1.1" fill="#fff"/>
+        <rect x="11.6" y="17.5" width="4.9" height="4.9" rx="1.1" fill="#F2A03D"/>
+        <rect x="17.5" y="17.5" width="4.9" height="4.9" rx="1.1" fill="#fff"/>
+      </svg>
+      <span class="logo-text">Array<span>Mart</span></span>
     </div>
 
-    <div class="deliver-box">
-      <span>Deliver to Alex</span>
-      <strong>Seattle 98101</strong>
+    <div class="deliver" title="Delivery address">
+      <span>Deliver to Alex</span><b>Bengaluru 560001</b>
     </div>
 
-    <div class="search-bar">
-      <select class="search-select">
-        <option>All Departments</option>
-        <option>Computers & Hardware</option>
-        <option>Electronics</option>
-      </select>
-      <input type="text" class="search-input" placeholder="Search Amazon" value="Developer Workstation Hardware">
-      <button class="search-btn">🔍</button>
+    <div class="searchbar">
+      <select id="searchScope"><option>All Departments</option></select>
+      <input id="searchInput" placeholder="Search ArrayMart" onkeydown="if(event.key==='Enter')doSearch()">
+      <button onclick="doSearch()" title="Search">🔍</button>
     </div>
 
-    <div class="nav-account">
-      <span>Hello, Alex</span>
-      <strong>Account & Lists ▾</strong>
-    </div>
-
-    <div class="nav-account">
-      <span>Returns</span>
-      <strong>& Orders</strong>
-    </div>
-
-    <div class="nav-cart" onclick="openCheckout()">
-      <span class="cart-icon">🛒</span>
-      <span class="cart-count" id="cart-counter">1</span>
-      <span style="font-weight: 700; margin-top: 6px;">Cart</span>
-    </div>
-  </header>
-
-  <!-- Amazon Sub-navigation Bar -->
-  <div class="subnav">
-    <div class="subnav-left">
-      <span class="subnav-item">☰ All</span>
-      <span class="subnav-item">Today's Deals</span>
-      <span class="subnav-item">Customer Service</span>
-      <span class="subnav-item">Registry</span>
-      <span class="subnav-item">Gift Cards</span>
-      <span class="subnav-item">Sell</span>
-    </div>
-
-    <!-- Live link to Failure Simulator (no polling, no global chaos state) -->
-    <div class="chaos-pill">
-      <span class="chaos-dot" id="chaos-indicator-dot" style="background: #10b981;"></span>
-      <span>Failure Mode: <strong id="chaos-mode-label" style="color: #67e8f9;">…</strong></span>
-      <a href="http://localhost:4002" target="_blank" class="link-control">Simulator (:4002) ↗</a>
+    <div class="navbtn" onclick="go('orders')"><span>Returns</span><b>& Orders</b></div>
+    <div class="cartbtn" onclick="go('cart')">
+      <span style="font-size:1.5rem">🛒</span>
+      <span class="cart-count" id="cartCount">0</span>
+      <b style="font-size:.82rem">Cart</b>
     </div>
   </div>
 
-  <!-- Hero Section -->
-  <div class="hero-banner">
-    <div class="hero-text">
-      <h2>Featured Developer Gear & Hardware</h2>
-      <p>Save up to 30% on ergonomic keyboards, 4K displays & multi-port hubs.</p>
-    </div>
-    <div>
-      <span class="prime-tag">prime</span> <span style="font-size: 0.9rem; font-weight: 600;">FREE Next-Day Delivery Included</span>
-    </div>
-  </div>
+  <div class="wrap subnav" id="subnav"></div>
+</header>
 
-  <!-- Main Product Showcase Grid -->
-  <div class="main-content">
-    <div class="product-grid" id="product-grid">
+<main class="wrap" id="view"></main>
 
-      <!-- Item 1 -->
-      <div class="product-card">
-        <div class="badge-choice">Amazon's Choice</div>
-        <div class="product-img-box">⌨️</div>
-        <div class="product-title">Mechanical Gaming Keyboard (Linear Red Switches, Hot-Swappable RGB)</div>
-        <div class="product-rating">
-          <span class="stars">★★★★★</span>
-          <span>4.8 (2,419)</span>
+<div class="ticker" id="ticker">
+  <h6>
+    <span>Live API activity</span>
+    <button onclick="document.getElementById('tickerList').classList.toggle('hide')" title="Collapse">▾</button>
+  </h6>
+  <ul id="tickerList"></ul>
+</div>
+
+<footer>
+  ArrayMart — a simulated storefront used to exercise BackendBhai.
+  Every click here becomes a real distributed trace.
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   ArrayMart storefront.
+
+   Deliberately API-heavy: browsing, search, product detail, reviews and
+   recommendations each call a different backend service, so a few minutes of
+   shopping produces a topology worth looking at in BackendBhai (:4001).
+   ══════════════════════════════════════════════════════════════════════ */
+
+const API = window.API_GATEWAY_URL || 'http://localhost:3000';
+const DEVTOOLS = 'http://localhost:4001';
+const OPS = 'http://localhost:4002';
+
+const state = {
+  view: 'home',
+  categories: [],
+  products: [],
+  category: 'all',
+  sort: 'featured',
+  query: '',
+  product: null,
+  reviews: null,
+  recs: null,
+  cart: JSON.parse(localStorage.getItem('am_cart') || '[]'),
+  orders: [],
+  checkoutStep: 0,
+  busy: false,
+  alert: null
+};
+
+/* ── API layer. Every call is logged to the ticker so a demo audience can
+      see the request that is about to appear in the monitor. ───────────── */
+function logCall(method, path, status, ms) {
+  const ul = document.getElementById('tickerList');
+  const li = document.createElement('li');
+  const cls = status >= 500 ? 's5' : status >= 400 ? 's4' : 's2';
+  li.innerHTML = `<span class="m">${method}</span><span class="u">${path}</span><span class="s ${cls}">${status} · ${ms}ms</span>`;
+  ul.prepend(li);
+  while (ul.children.length > 40) ul.lastChild.remove();
+}
+
+async function api(path, options = {}) {
+  const started = performance.now();
+  const method = options.method || 'GET';
+  try {
+    const res = await fetch(API + path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+    });
+    const ms = Math.round(performance.now() - started);
+    logCall(method, path, res.status, ms);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { status: res.status, body });
+    return body;
+  } catch (err) {
+    if (!err.status) logCall(method, path, 0, Math.round(performance.now() - started));
+    throw err;
+  }
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────────── */
+const money = (n) => '$' + Number(n || 0).toFixed(2);
+const stars = (r) => '★'.repeat(Math.round(r || 0)) + '☆'.repeat(5 - Math.round(r || 0));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const cartQty = () => state.cart.reduce((s, i) => s + i.qty, 0);
+const cartTotal = () => state.cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+function saveCart() {
+  localStorage.setItem('am_cart', JSON.stringify(state.cart));
+  document.getElementById('cartCount').textContent = cartQty();
+}
+
+function stockNote(stock) {
+  if (stock <= 0) return '<div class="stocknote out">Out of stock</div>';
+  if (stock < 20) return `<div class="stocknote low">Only ${stock} left</div>`;
+  return '<div class="stocknote in">In stock</div>';
+}
+
+function go(view, arg) {
+  state.view = view;
+  state.alert = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (view === 'category') { state.category = arg || 'all'; state.query = ''; loadProducts(); }
+  else if (view === 'product') loadProduct(arg);
+  else if (view === 'orders') loadOrders();
+  else if (view === 'checkout') { state.checkoutStep = 0; render(); }
+  else render();
+  renderSubnav();
+}
+
+/* ── Loaders ─────────────────────────────────────────────────────────── */
+async function loadCategories() {
+  try {
+    const data = await api('/api/catalog/categories');
+    state.categories = data.categories || [];
+  } catch { state.categories = []; }
+  renderSubnav();
+}
+
+async function loadProducts() {
+  state.busy = true; render();
+  try {
+    const q = `?category=${encodeURIComponent(state.category)}&sort=${encodeURIComponent(state.sort)}`;
+    const data = await api('/api/catalog/products' + q);
+    state.products = data.products || [];
+    state.cacheState = data.cache;
+  } catch (err) {
+    state.products = [];
+    state.alert = { type: 'err', title: 'Could not load the catalogue', msg: err.message };
+  }
+  state.busy = false; render();
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  state.view = 'search'; state.query = q; state.busy = true; render();
+  try {
+    const data = await api('/api/catalog/search?q=' + encodeURIComponent(q));
+    state.products = data.products || [];
+  } catch (err) {
+    state.products = [];
+    state.alert = { type: 'err', title: 'Search failed', msg: err.message };
+  }
+  state.busy = false; render(); renderSubnav();
+}
+
+async function loadProduct(id) {
+  state.busy = true; state.product = null; state.reviews = null; state.recs = null; render();
+  try {
+    state.product = await api('/api/catalog/products/' + id);
+  } catch (err) {
+    state.alert = { type: 'err', title: 'Could not load this product', msg: err.message };
+    state.busy = false; return render();
+  }
+  state.busy = false; render();
+
+  // Reviews and recommendations load after the page paints: two more traces,
+  // and the recommendation one fans out across three services.
+  api('/api/products/' + id + '/reviews')
+    .then((r) => { state.reviews = r; render(); })
+    .catch(() => { state.reviews = { count: 0, reviews: [], failed: true }; render(); });
+  api('/api/products/' + id + '/recommendations')
+    .then((r) => { state.recs = r.recommendations || []; render(); })
+    .catch(() => { state.recs = []; render(); });
+}
+
+async function loadOrders() {
+  state.busy = true; render();
+  try {
+    const data = await api('/api/orders');
+    state.orders = Array.isArray(data) ? data : (data.orders || []);
+  } catch (err) {
+    state.orders = [];
+    state.alert = { type: 'err', title: 'Could not load your orders', msg: err.message };
+  }
+  state.busy = false; render();
+}
+
+/* ── Cart ────────────────────────────────────────────────────────────── */
+function addToCart(id, qty) {
+  const p = state.products.find((x) => x.id === id) || state.product ||
+            (state.recs || []).find((x) => x.id === id);
+  if (!p) return;
+  const line = state.cart.find((i) => i.id === p.id);
+  if (line) line.qty += qty || 1;
+  else state.cart.push({ id: p.id, name: p.name, price: p.price, emoji: p.emoji, qty: qty || 1 });
+  saveCart();
+  state.alert = { type: 'ok', title: 'Added to cart', msg: `${p.name} · ${money(p.price)}` };
+  render();
+}
+function setQty(id, delta) {
+  const line = state.cart.find((i) => i.id === id);
+  if (!line) return;
+  line.qty += delta;
+  if (line.qty <= 0) state.cart = state.cart.filter((i) => i.id !== id);
+  saveCart(); render();
+}
+function removeLine(id) { state.cart = state.cart.filter((i) => i.id !== id); saveCart(); render(); }
+
+/* ── Checkout ────────────────────────────────────────────────────────── */
+async function placeOrder() {
+  const btn = document.getElementById('placeBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Placing your order…'; }
+  try {
+    const order = await api('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: 'user-42',
+        items: state.cart.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty }))
+      })
+    });
+    state.cart = []; saveCart();
+    state.lastOrder = order;
+    state.view = 'confirmed';
+  } catch (err) {
+    const detail = err.body || {};
+    state.alert = {
+      type: 'err',
+      title: 'Your order could not be placed',
+      msg: `${detail.error || err.message}${detail.message ? ' — ' + detail.message : ''}`,
+      status: err.status
+    };
+  }
+  render();
+}
+
+/* ── Reviews ─────────────────────────────────────────────────────────── */
+async function submitReview(productId) {
+  const rating = Number(document.getElementById('rvRating').value);
+  const title = document.getElementById('rvTitle').value.trim();
+  const body = document.getElementById('rvBody').value.trim();
+  try {
+    await api('/api/products/' + productId + '/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ author: 'Alex Chen', rating, title, body })
+    });
+    state.alert = { type: 'ok', title: 'Thanks for the review', msg: 'It will appear with the others below.' };
+    state.reviews = await api('/api/products/' + productId + '/reviews');
+  } catch (err) {
+    state.alert = { type: 'err', title: 'Review rejected', msg: err.message };
+  }
+  render();
+}
+
+/* ── Rendering ───────────────────────────────────────────────────────── */
+function renderSubnav() {
+  const nav = document.getElementById('subnav');
+  const cats = state.categories.map((c) =>
+    `<button class="${state.category === c.slug && state.view === 'category' ? 'on' : ''}"
+             onclick="go('category','${c.slug}')">${c.emoji} ${esc(c.name)}</button>`).join('');
+  nav.innerHTML = `
+    <button class="${state.view === 'home' ? 'on' : ''}" onclick="go('home')">☰ All</button>
+    ${cats}
+    <div class="sysline">
+      <span class="pill"><span class="dot" id="simDot"></span>Mode: <b id="simMode">…</b></span>
+      <a href="${OPS}" target="_blank">Ops Console ↗</a>
+      <a href="${DEVTOOLS}" target="_blank">BackendBhai ↗</a>
+    </div>`;
+}
+
+function productCard(p) {
+  return `<div class="p" onclick="go('product','${p.id}')">
+    <div class="img">${p.emoji || '📦'}</div>
+    <div class="brand">${esc(p.brand || 'ArrayMart')}</div>
+    <div class="name">${esc(p.name)}</div>
+    <div class="stars">${stars(p.rating)} <small>${(p.review_count || 0).toLocaleString()}</small></div>
+    <div class="price"><sup>$</sup>${Number(p.price).toFixed(2)}</div>
+    ${stockNote(p.stock)}
+    <button class="addbtn" onclick="event.stopPropagation();addToCart('${p.id}',1)">Add to cart</button>
+  </div>`;
+}
+
+function alertHtml() {
+  if (!state.alert) return '';
+  const a = state.alert;
+  return `<div class="alert ${a.type}">
+    <b>${esc(a.title)}</b>${esc(a.msg)}
+    ${a.status ? `<div style="margin-top:6px"><code>HTTP ${a.status}</code> — open BackendBhai to see which service failed.</div>` : ''}
+  </div>`;
+}
+
+function skeletons(n) {
+  return `<div class="grid">${Array.from({ length: n }, () => '<div class="skeleton"></div>').join('')}</div>`;
+}
+
+function render() {
+  const v = document.getElementById('view');
+  document.getElementById('cartCount').textContent = cartQty();
+
+  if (state.view === 'home') {
+    const trending = [...state.products].sort((a, b) => b.review_count - a.review_count).slice(0, 6);
+    const top = [...state.products].sort((a, b) => b.rating - a.rating).slice(0, 6);
+    v.innerHTML = `
+      ${alertHtml()}
+      <div class="hero">
+        <div>
+          <h1>Everything for the desk you actually work at</h1>
+          <p>Twenty-eight products across six departments, with real stock levels, real reviews
+             and a checkout that talks to seven services. Break it on purpose from the Ops Console.</p>
+          <button class="cta" onclick="go('category','all')">Shop all departments</button>
         </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">89</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">99</span>
-          <span class="price-orig">$119.99</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-1', 'Mechanical Gaming Keyboard', 89.99)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-1', 'Mechanical Gaming Keyboard', 89.99)">Buy Now</button>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="hero-badge"><b>28</b><span>products</span></div>
+          <div class="hero-badge"><b>7</b><span>backend services</span></div>
         </div>
       </div>
 
-      <!-- Item 2 -->
-      <div class="product-card">
-        <div class="badge-choice">Best Seller</div>
-        <div class="product-img-box">🖱️</div>
-        <div class="product-title">Ergonomic Wireless Mouse with Hyper-Scroll & Thumb Wheel</div>
-        <div class="product-rating">
-          <span class="stars">★★★★★</span>
-          <span>4.7 (8,912)</span>
-        </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">49</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">99</span>
-          <span class="price-orig">$69.99</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-2', 'Ergonomic Wireless Mouse', 49.99)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-2', 'Ergonomic Wireless Mouse', 49.99)">Buy Now</button>
-        </div>
+      <div class="sectionhead"><h2>Shop by department</h2></div>
+      <div class="cats">
+        ${state.categories.map((c) => `<div class="cat" onclick="go('category','${c.slug}')">
+            <div class="emoji">${c.emoji}</div><b>${esc(c.name)}</b><span>${c.count} items</span></div>`).join('')}
       </div>
 
-      <!-- Item 3 -->
-      <div class="product-card">
-        <div class="badge-choice">Amazon's Choice</div>
-        <div class="product-img-box">🖥️</div>
-        <div class="product-title">27-inch 4K UHD IPS Designer Monitor (USB-C 90W Charging, 99% sRGB)</div>
-        <div class="product-rating">
-          <span class="stars">★★★★★</span>
-          <span>4.9 (1,120)</span>
-        </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">349</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">00</span>
-          <span class="price-orig">$429.00</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-3', '27-inch 4K UHD Monitor', 349.00)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-3', '27-inch 4K UHD Monitor', 349.00)">Buy Now</button>
+      <div class="sectionhead"><h2>Trending now</h2><span class="more" onclick="go('category','all')">See all →</span></div>
+      ${state.busy ? skeletons(4) : `<div class="rail">${trending.map(productCard).join('')}</div>`}
+
+      <div class="sectionhead"><h2>Top rated</h2></div>
+      ${state.busy ? skeletons(4) : `<div class="rail">${top.map(productCard).join('')}</div>`}`;
+    return;
+  }
+
+  if (state.view === 'category' || state.view === 'search') {
+    const label = state.view === 'search'
+      ? `Results for “${esc(state.query)}”`
+      : (state.categories.find((c) => c.slug === state.category)?.name || 'All departments');
+    v.innerHTML = `
+      <div class="crumbs"><span onclick="go('home')">Home</span> › ${esc(label)}</div>
+      <h1>${esc(label)}</h1>
+      ${alertHtml()}
+      <div class="toolbar">
+        <span class="count">${state.products.length} results${state.cacheState ? ` · catalogue cache ${state.cacheState}` : ''}</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <label style="font-size:.83rem;color:var(--muted)">Sort</label>
+          <select onchange="state.sort=this.value;loadProducts()">
+            <option value="featured"${state.sort==='featured'?' selected':''}>Featured</option>
+            <option value="rating"${state.sort==='rating'?' selected':''}>Avg. rating</option>
+            <option value="price-asc"${state.sort==='price-asc'?' selected':''}>Price: low to high</option>
+            <option value="price-desc"${state.sort==='price-desc'?' selected':''}>Price: high to low</option>
+          </select>
         </div>
       </div>
+      ${state.busy ? skeletons(8)
+        : state.products.length ? `<div class="grid">${state.products.map(productCard).join('')}</div>`
+        : `<div class="empty"><div class="big">🔍</div><b>Nothing matched</b><div>Try a different department or search term.</div></div>`}`;
+    return;
+  }
 
-      <!-- Item 4 -->
-      <div class="product-card">
-        <div class="product-img-box">🔌</div>
-        <div class="product-title">USB-C Multiport Docking Station 10-in-1 (Dual 4K HDMI, Gigabit Ethernet)</div>
-        <div class="product-rating">
-          <span class="stars">★★★★☆</span>
-          <span>4.6 (4,320)</span>
-        </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">69</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">50</span>
-          <span class="price-orig">$89.00</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-4', 'USB-C Docking Station', 69.50)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-4', 'USB-C Docking Station', 69.50)">Buy Now</button>
-        </div>
-      </div>
+  if (state.view === 'product') {
+    if (state.busy || !state.product) { v.innerHTML = skeletons(3); return; }
+    const p = state.product;
+    const r = state.reviews;
+    v.innerHTML = `
+      <div class="crumbs"><span onclick="go('home')">Home</span> ›
+        <span onclick="go('category','${p.category}')">${esc(p.category)}</span> › ${esc(p.name)}</div>
+      ${alertHtml()}
+      <div class="pdp">
+        <div class="panel"><div class="gallery">${p.emoji || '📦'}</div></div>
 
-      <!-- Item 5 -->
-      <div class="product-card">
-        <div class="badge-choice">Best Seller</div>
-        <div class="product-img-box">🎧</div>
-        <div class="product-title">Active Noise-Cancelling Bluetooth Headphones with Spatial Audio</div>
-        <div class="product-rating">
-          <span class="stars">★★★★★</span>
-          <span>4.8 (15,280)</span>
-        </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">199</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">99</span>
-          <span class="price-orig">$249.99</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-5', 'Noise-Cancelling Headphones', 199.99)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-5', 'Noise-Cancelling Headphones', 199.99)">Buy Now</button>
-        </div>
-      </div>
-
-      <!-- Item 6 -->
-      <div class="product-card">
-        <div class="product-img-box">⚡</div>
-        <div class="product-title">GaN 100W Fast Wall Charger (4-Port Foldable Prongs for Laptop & Phone)</div>
-        <div class="product-rating">
-          <span class="stars">★★★★★</span>
-          <span>4.9 (6,700)</span>
-        </div>
-        <div class="price-row">
-          <span class="price-symbol">$</span>
-          <span class="price-val">45</span>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--amz-price);">00</span>
-          <span class="price-orig">$59.99</span>
-        </div>
-        <div class="prime-delivery">
-          <span class="prime-tag">prime</span>
-          <span>FREE delivery <strong>Tomorrow, 2 PM - 6 PM</strong></span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-cart" onclick="addItemToCart('item-6', 'GaN 100W Wall Charger', 45.00)">Add to Cart</button>
-          <button class="btn-buy" onclick="buyNow('item-6', 'GaN 100W Wall Charger', 45.00)">Buy Now</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Amazon Checkout Modal -->
-  <div class="modal-backdrop" id="checkout-modal">
-    <div class="checkout-modal">
-      <div class="modal-header">
-        <h3>Review your order & checkout</h3>
-        <button class="btn-close" onclick="closeCheckout()">✕</button>
-      </div>
-      <div class="modal-body">
-
-        <!-- Dynamic Feedback Alert (Success / Error / Warning) -->
-        <div class="feedback-alert" id="feedback-alert">
-          <div id="alert-content"></div>
-        </div>
-
-        <!-- Animated Progress Spinner -->
-        <div class="spinner-box" id="checkout-spinner">
-          <div class="amz-spinner"></div>
-          <div class="spinner-msg" id="spinner-status-msg">Authorizing your order with payment gateway...</div>
-        </div>
-
-        <div id="checkout-form-content">
-          <div class="review-section">
-            <h4>Shipping address</h4>
-            <div class="review-text">
-              Alex Chen<br>
-              1200 4th Ave, Suite 2400<br>
-              Seattle, WA 98101<br>
-              United States
-            </div>
+        <div>
+          <div class="panel">
+            <div class="brand" style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700">${esc(p.brand)}</div>
+            <h1>${esc(p.name)}</h1>
+            <div class="stars" style="margin:8px 0">${stars(p.rating)}
+              <small>${Number(p.rating).toFixed(1)} · ${(p.review_count||0).toLocaleString()} ratings</small></div>
+            <p style="color:#414B63;margin:12px 0 16px">${esc(p.description)}</p>
+            <div class="kv"><span>Department</span><b>${esc(p.category)}</b></div>
+            <div class="kv"><span>Brand</span><b>${esc(p.brand)}</b></div>
+            <div class="kv"><span>Product ID</span><b>${esc(p.id)}</b></div>
+            <div class="kv"><span>Units in stock</span><b>${p.stock}</b></div>
           </div>
 
-          <div class="review-section">
-            <h4>Payment method</h4>
-            <div class="review-text">
-              💳 Amazon Prime Rewards Visa Signature ending in <strong>4242</strong><br>
-              Billing address: Same as shipping address
+          <div class="panel" style="margin-top:18px">
+            <div class="sectionhead" style="margin:0 0 6px"><h2>Customer reviews</h2></div>
+            ${!r ? '<div style="color:var(--muted);font-size:.86rem">Loading reviews…</div>'
+              : r.failed ? '<div class="alert err" style="margin:0"><b>Reviews unavailable</b>The review service did not respond. Check BackendBhai for the failing span.</div>'
+              : `<div style="margin-bottom:8px"><span class="stars">${stars(r.average)}</span>
+                   <b>${r.average}</b> <small style="color:var(--muted)">from ${r.count} reviews</small></div>
+                 ${r.reviews.map((x) => `<div class="review">
+                    <div class="stars">${stars(x.rating)}</div>
+                    <div class="rt">${esc(x.title)}</div>
+                    <div class="ra">${esc(x.author)}</div>
+                    <p>${esc(x.body)}</p></div>`).join('')}`}
+
+            <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px">
+              <b style="display:block;margin-bottom:10px">Write a review</b>
+              <div class="row2">
+                <div class="field"><label>Rating</label>
+                  <select id="rvRating">
+                    <option value="5">5 — Excellent</option><option value="4">4 — Good</option>
+                    <option value="3">3 — Okay</option><option value="2">2 — Poor</option>
+                    <option value="1">1 — Terrible</option><option value="9">9 — (invalid, returns 422)</option>
+                  </select></div>
+                <div class="field"><label>Title</label><input id="rvTitle" value="Works well"></div>
+              </div>
+              <div class="field"><label>Your review</label><textarea id="rvBody" rows="2">Been using it for a week and it does exactly what I expected.</textarea></div>
+              <button class="addbtn" style="width:auto;padding:9px 20px" onclick="submitReview('${p.id}')">Submit review</button>
             </div>
           </div>
+        </div>
 
-          <div class="order-summary-box">
-            <h4 style="margin-bottom: 8px;">Order Summary</h4>
-            <div class="summary-line">
-              <span>Items (<span id="modal-cart-count">1</span>):</span>
-              <span id="modal-items-total">$89.99</span>
-            </div>
-            <div class="summary-line">
-              <span>Shipping & handling:</span>
-              <span style="color: #007600;">$0.00 (Prime Free)</span>
-            </div>
-            <div class="summary-line">
-              <span>Estimated tax to be collected:</span>
-              <span id="modal-tax">$0.00</span>
-            </div>
-            <div class="summary-total">
-              <span>Order total:</span>
-              <span id="modal-grand-total">$89.99</span>
-            </div>
+        <div class="panel buybox">
+          <div class="price"><sup>$</sup>${Number(p.price).toFixed(2)}</div>
+          <div style="font-size:.82rem;color:var(--muted)">FREE delivery Tomorrow</div>
+          ${stockNote(p.stock)}
+          <div class="qtyrow">
+            <span style="font-size:.83rem;color:var(--muted)">Qty</span>
+            <button onclick="pdpQty(-1)">−</button><b id="pdpQty">1</b><button onclick="pdpQty(1)">+</button>
           </div>
+          <button class="addbtn" onclick="addToCart('${p.id}', Number(document.getElementById('pdpQty').textContent))">Add to cart</button>
+          <button class="buynow" onclick="addToCart('${p.id}',Number(document.getElementById('pdpQty').textContent));go('checkout')">Buy now</button>
+        </div>
+      </div>
 
-          <button class="btn-place-order" id="btn-submit-order" onclick="submitAmazonOrder()">
-            Place your order
+      <div class="sectionhead"><h2>Customers also considered</h2></div>
+      ${state.recs === null ? skeletons(4)
+        : state.recs.length ? `<div class="rail">${state.recs.map(productCard).join('')}</div>`
+        : '<div style="color:var(--muted);font-size:.86rem">No recommendations available right now.</div>'}`;
+    return;
+  }
+
+  if (state.view === 'cart') {
+    v.innerHTML = `
+      <div class="crumbs"><span onclick="go('home')">Home</span> › Shopping cart</div>
+      <h1>Shopping cart</h1>
+      ${alertHtml()}
+      ${state.cart.length === 0
+        ? `<div class="empty"><div class="big">🛒</div><b>Your cart is empty</b>
+             <div>Browse a department to add something.</div>
+             <button class="addbtn" style="width:auto;padding:10px 22px;margin-top:14px" onclick="go('category','all')">Start shopping</button></div>`
+        : `<div class="cartgrid">
+            <div class="panel">
+              ${state.cart.map((i) => `<div class="line">
+                <div class="img">${i.emoji || '📦'}</div>
+                <div class="meta">
+                  <div class="nm">${esc(i.name)}</div>
+                  <div style="font-size:.8rem;color:var(--ok)">In stock</div>
+                  <div class="qtyrow" style="margin:8px 0 0">
+                    <button onclick="setQty('${i.id}',-1)">−</button><b>${i.qty}</b>
+                    <button onclick="setQty('${i.id}',1)">+</button>
+                    <button class="rm" onclick="removeLine('${i.id}')">Delete</button>
+                  </div>
+                </div>
+                <div style="font-weight:700">${money(i.price * i.qty)}</div>
+              </div>`).join('')}
+            </div>
+            <div class="panel totals">
+              <div class="row"><span>Items (${cartQty()})</span><b>${money(cartTotal())}</b></div>
+              <div class="row"><span>Delivery</span><b>FREE</b></div>
+              <div class="row"><span>Estimated tax</span><b>${money(cartTotal() * 0.08)}</b></div>
+              <div class="row grand"><span>Order total</span><span>${money(cartTotal() * 1.08)}</span></div>
+              <button class="placebtn" style="margin-top:14px" onclick="go('checkout')">Proceed to checkout</button>
+            </div>
+          </div>`}`;
+    return;
+  }
+
+  if (state.view === 'checkout') {
+    if (state.cart.length === 0) { state.view = 'cart'; return render(); }
+    const steps = ['Delivery address', 'Payment method', 'Review order'];
+    v.innerHTML = `
+      <div class="crumbs"><span onclick="go('cart')">Cart</span> › Checkout</div>
+      <h1>Checkout</h1>
+      ${alertHtml()}
+      <div class="steps">${steps.map((s, i) =>
+        `<div class="step ${i === state.checkoutStep ? 'on' : i < state.checkoutStep ? 'done' : ''}">
+           ${i + 1}. ${s}${i < state.checkoutStep ? ' ✓' : ''}</div>`).join('')}</div>
+      <div class="cartgrid">
+        <div class="panel">
+          ${state.checkoutStep === 0 ? `
+            <h2 style="margin-bottom:14px">Delivery address</h2>
+            <div class="field"><label>Full name</label><input value="Alex Chen"></div>
+            <div class="field"><label>Address</label><input value="4/2 Residency Road"></div>
+            <div class="row2">
+              <div class="field"><label>City</label><input value="Bengaluru"></div>
+              <div class="field"><label>PIN code</label><input value="560001"></div>
+            </div>
+            <button class="placebtn" onclick="state.checkoutStep=1;render()">Use this address</button>`
+          : state.checkoutStep === 1 ? `
+            <h2 style="margin-bottom:14px">Payment method</h2>
+            <div class="field"><label>Card number</label><input value="4242 4242 4242 4242"></div>
+            <div class="row2">
+              <div class="field"><label>Expiry</label><input value="04/28"></div>
+              <div class="field"><label>CVV</label><input value="•••"></div>
+            </div>
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+              Charges are handled by payment-service, which calls the external mock-payment-api.
+              Break either one from the Ops Console to see the failure surface here.
+            </div>
+            <button class="placebtn" onclick="state.checkoutStep=2;render()">Use this card</button>`
+          : `
+            <h2 style="margin-bottom:14px">Review your order</h2>
+            ${state.cart.map((i) => `<div class="line">
+              <div class="img">${i.emoji || '📦'}</div>
+              <div class="meta"><div class="nm">${esc(i.name)}</div>
+                <div style="font-size:.82rem;color:var(--muted)">Qty ${i.qty} · ${money(i.price)} each</div></div>
+              <div style="font-weight:700">${money(i.price * i.qty)}</div></div>`).join('')}
+            <div style="font-size:.82rem;color:var(--muted);margin-top:14px">
+              Placing this order calls the gateway, which authenticates, creates the order,
+              charges the card and returns — five services in one trace.
+            </div>`}
+        </div>
+        <div class="panel totals">
+          <div class="row"><span>Items (${cartQty()})</span><b>${money(cartTotal())}</b></div>
+          <div class="row"><span>Delivery</span><b>FREE</b></div>
+          <div class="row"><span>Estimated tax</span><b>${money(cartTotal() * 0.08)}</b></div>
+          <div class="row grand"><span>Order total</span><span>${money(cartTotal() * 1.08)}</span></div>
+          <button class="placebtn" id="placeBtn" style="margin-top:14px"
+                  ${state.checkoutStep < 2 ? 'disabled' : ''} onclick="placeOrder()">
+            ${state.checkoutStep < 2 ? 'Complete the steps' : 'Place your order'}
           </button>
-          <div style="font-size: 0.72rem; color: #565959; text-align: center; margin-top: 8px;">
-            By placing your order, you agree to Amazon's privacy notice and conditions of use.
-          </div>
         </div>
+      </div>`;
+    return;
+  }
 
-      </div>
-    </div>
-  </div>
+  if (state.view === 'confirmed') {
+    const o = state.lastOrder || {};
+    v.innerHTML = `
+      <div class="panel" style="text-align:center;padding:44px">
+        <div style="font-size:3.2rem">✅</div>
+        <h1 style="margin:10px 0 6px">Order placed</h1>
+        <p style="color:var(--muted)">Thanks, Alex. A confirmation is on its way.</p>
+        <div style="max-width:420px;margin:22px auto 0;text-align:left">
+          <div class="kv"><span>Order ID</span><b>${esc(o.orderId || '—')}</b></div>
+          <div class="kv"><span>Status</span><b>${esc(o.status || '—')}</b></div>
+          <div class="kv"><span>Items</span><b>${o.itemCount ?? '—'}</b></div>
+          <div class="kv"><span>Total charged</span><b>${o.total != null ? money(o.total) : '—'}</b></div>
+          <div class="kv"><span>Gateway time</span><b>${o.gatewayDurationMs ?? '—'} ms</b></div>
+        </div>
+        <div style="margin-top:24px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button class="addbtn" style="width:auto;padding:10px 20px" onclick="go('orders')">View your orders</button>
+          <button class="buynow" style="width:auto;padding:10px 20px" onclick="go('home')">Keep shopping</button>
+          <a class="buynow" style="width:auto;padding:10px 20px;display:inline-block;text-align:center;color:#fff"
+             href="${DEVTOOLS}" target="_blank">Inspect this trace ↗</a>
+        </div>
+      </div>`;
+    return;
+  }
 
-  <script>
-    const API_GATEWAY = window.API_GATEWAY_URL || 'http://localhost:3000';
+  if (state.view === 'orders') {
+    v.innerHTML = `
+      <div class="crumbs"><span onclick="go('home')">Home</span> › Your orders</div>
+      <h1>Your orders</h1>
+      ${alertHtml()}
+      ${state.busy ? skeletons(3)
+        : state.orders.length ? `<div class="panel">${state.orders.map((o) => `
+            <div class="line">
+              <div class="img">📦</div>
+              <div class="meta">
+                <div class="nm">Order ${esc(o.id)}</div>
+                <div style="font-size:.82rem;color:var(--muted)">
+                  ${(o.items || []).length} item(s) · ${o.created_at ? new Date(o.created_at).toLocaleString() : ''}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:700">${money(o.total)}</div>
+                <div style="font-size:.78rem" class="${o.status === 'paid' ? 'in' : o.status === 'failed' ? 'out' : 'low'}">${esc(o.status)}</div>
+              </div>
+            </div>`).join('')}</div>`
+        : `<div class="empty"><div class="big">📦</div><b>No orders yet</b><div>Place one to see it here.</div></div>`}`;
+    return;
+  }
+}
 
-    let cart = [
-      { id: 'item-1', name: 'Mechanical Gaming Keyboard', price: 89.99, qty: 1 }
-    ];
+function pdpQty(d) {
+  const el = document.getElementById('pdpQty');
+  el.textContent = Math.max(1, Number(el.textContent) + d);
+}
 
-    function updateCartBadge() {
-      const count = cart.reduce((sum, i) => sum + i.qty, 0);
-      document.getElementById('cart-counter').textContent = count;
-      document.getElementById('modal-cart-count').textContent = count;
+/* ── Failure mode indicator. Read once on load and after each order, never
+      polled: a 1.5s poll used to bury real traffic in the monitor. ─────── */
+async function refreshMode() {
+  try {
+    const s = await fetch(API + '/api/simulation/state').then((r) => r.json());
+    const mode = s.active && s.mode ? s.mode : 'normal';
+    const el = document.getElementById('simMode');
+    const dot = document.getElementById('simDot');
+    if (el) el.textContent = mode.toUpperCase();
+    if (dot) dot.style.background = mode === 'normal' ? '#3FCB7F' : '#FF7B72';
+  } catch {
+    const el = document.getElementById('simMode');
+    if (el) el.textContent = 'UNAVAILABLE';
+  }
+}
 
-      const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-      document.getElementById('modal-items-total').textContent = '$' + subtotal.toFixed(2);
-      document.getElementById('modal-grand-total').textContent = '$' + subtotal.toFixed(2);
-    }
-
-    function addItemToCart(id, name, price) {
-      const existing = cart.find(i => i.id === id);
-      if (existing) {
-        existing.qty++;
-      } else {
-        cart.push({ id, name, price, qty: 1 });
-      }
-      updateCartBadge();
-      openCheckout();
-    }
-
-    function buyNow(id, name, price) {
-      cart = [{ id, name, price, qty: 1 }];
-      updateCartBadge();
-      openCheckout();
-    }
-
-    function openCheckout() {
-      document.getElementById('checkout-modal').classList.add('open');
-      document.getElementById('feedback-alert').className = 'feedback-alert';
-      document.getElementById('feedback-alert').style.display = 'none';
-      document.getElementById('checkout-form-content').style.display = 'block';
-      document.getElementById('checkout-spinner').classList.remove('active');
-    }
-
-    function closeCheckout() {
-      document.getElementById('checkout-modal').classList.remove('open');
-    }
-
-    // Read the gateway global simulation mode set from the Failure Simulator (:4002).
-    // Fetched on load and after each order only — never polled, since a 1.5s poll is
-    // what previously flooded the DevTools trace list.
-    async function refreshSimulationMode() {
-      const label = document.getElementById('chaos-mode-label');
-      const dot = document.getElementById('chaos-indicator-dot');
-      try {
-        const res = await fetch(`${API_GATEWAY}/api/simulation/state`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const state = await res.json();
-        const mode = (state.active && state.mode) ? state.mode : 'normal';
-        if (label) label.textContent = mode.toUpperCase();
-        if (dot) dot.style.background = mode === 'normal' ? '#10b981' : '#ef4444';
-      } catch (err) {
-        if (label) label.textContent = 'UNAVAILABLE';
-        if (dot) dot.style.background = '#6b7280';
-      }
-    }
-    refreshSimulationMode();
-
-    // Place order through API Gateway
-    async function submitAmazonOrder() {
-      const spinner = document.getElementById('checkout-spinner');
-      const formContent = document.getElementById('checkout-form-content');
-      const alertBox = document.getElementById('feedback-alert');
-      const alertMsg = document.getElementById('alert-content');
-      const spinnerMsg = document.getElementById('spinner-status-msg');
-
-      formContent.style.display = 'none';
-      alertBox.style.display = 'none';
-      spinner.classList.add('active');
-
-      spinnerMsg.textContent = 'Submitting order to fulfillment center...';
-
-      const start = Date.now();
-
-      try {
-        const res = await fetch(`${API_GATEWAY}/api/orders`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: 'user-42',
-            items: cart
-          })
-        });
-
-        const elapsed = Date.now() - start;
-        const data = await res.json().catch(() => ({}));
-        spinner.classList.remove('active');
-
-        if (res.ok) {
-          // Success Path
-          alertBox.className = 'feedback-alert alert-success active';
-          const isHeavyNotice = elapsed > 2500;
-          alertMsg.innerHTML = `
-            <h3 style="margin-bottom: 6px; color: #166534;">✔ Order placed, thank you!</h3>
-            <p style="margin-bottom: 8px;">Confirmation will be sent to <strong>alex.chen@example.com</strong>.</p>
-            <div style="font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; font-family: monospace;">
-              Order ID: <strong>${data.orderId || '114-8291039-4820192'}</strong><br>
-              Estimated delivery: <strong>Tomorrow by 8:00 PM</strong><br>
-              Server execution time: <strong>${elapsed}ms</strong> ${isHeavyNotice ? '⚠️ (3s slow DB span captured by BackendBhai!)' : ''}
-            </div>
-            <button onclick="closeCheckout()" style="margin-top: 14px; background: #007185; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Continue shopping</button>
-          `;
-          alertBox.style.display = 'block';
-        } else if (res.status === 401) {
-          // Auth Timeout Error (S-08)
-          alertBox.className = 'feedback-alert alert-error active';
-          alertMsg.innerHTML = `
-            <h3 style="margin-bottom: 6px; color: #991b1b;">⚠️ We encountered a problem with your account</h3>
-            <p style="margin-bottom: 8px;">Your authentication session timed out after <strong>${elapsed}ms</strong>. For your security, please verify your credentials.</p>
-            <div style="font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; font-family: monospace;">
-              Error Code: <strong>HTTP 401 Unauthorized</strong><br>
-              Backend Reason: <strong>${data.message || 'Auth service timeout (5000ms delay)'}</strong>
-            </div>
-            <button onclick="formContent.style.display='block'; alertBox.style.display='none';" style="margin-top: 14px; background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Retry Authentication</button>
-          `;
-          alertBox.style.display = 'block';
-        } else if (res.status === 503 || res.status === 502) {
-          // Payment Provider 503 Failure (S-06)
-          alertBox.className = 'feedback-alert alert-error active';
-          alertMsg.innerHTML = `
-            <h3 style="margin-bottom: 6px; color: #991b1b;">⚠️ Payment Authorization Failed</h3>
-            <p style="margin-bottom: 8px;">The external payment gateway returned <strong>503 Service Unavailable</strong>. Your card ending in 4242 has <strong>not</strong> been charged.</p>
-            <div style="font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; font-family: monospace;">
-              Failure Provider: <strong>Mock Payment API (:4000)</strong><br>
-              Status: <strong>503 Gateway Temporarily Unavailable</strong><br>
-              Duration: <strong>${elapsed}ms</strong>
-            </div>
-            <button onclick="formContent.style.display='block'; alertBox.style.display='none';" style="margin-top: 14px; background: #ea580c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Change payment method</button>
-          `;
-          alertBox.style.display = 'block';
-        } else {
-          // General failure
-          alertBox.className = 'feedback-alert alert-error active';
-          alertMsg.innerHTML = `
-            <h3 style="margin-bottom: 6px; color: #991b1b;">⚠️ Error placing order</h3>
-            <p>${data.error || data.message || 'Gateway routing error'}</p>
-            <button onclick="formContent.style.display='block'; alertBox.style.display='none';" style="margin-top: 14px; background: #475569; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Back</button>
-          `;
-          alertBox.style.display = 'block';
-        }
-      } catch (networkErr) {
-        spinner.classList.remove('active');
-        alertBox.className = 'feedback-alert alert-error active';
-        alertMsg.innerHTML = `
-          <h3 style="margin-bottom: 6px; color: #991b1b;">⚠️ Network connection error</h3>
-          <p>Could not reach API Gateway at ${API_GATEWAY}. Ensure services are running.</p>
-          <button onclick="formContent.style.display='block'; alertBox.style.display='none';" style="margin-top: 14px; background: #475569; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Retry</button>
-        `;
-        alertBox.style.display = 'block';
-      }
-    }
-
-    updateCartBadge();
-  </script>
+/* ── Boot ────────────────────────────────────────────────────────────── */
+(async function init() {
+  renderSubnav();
+  saveCart();
+  await loadCategories();
+  await loadProducts();
+  render();
+  refreshMode();
+})();
+</script>
 </body>
 </html>

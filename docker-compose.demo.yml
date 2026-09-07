@@ -44,6 +44,9 @@ services:
       PORT: 3000
       AUTH_SERVICE_URL: http://auth-service:3001
       ORDER_SERVICE_URL: http://order-service:3002
+      CATALOG_SERVICE_URL: http://catalog-service:3004
+      REVIEW_SERVICE_URL: http://review-service:3005
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:3006
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     depends_on:
       - auth-service
@@ -119,6 +122,67 @@ services:
   # ─────────────────────────────────────────────
   # Master Error Injector Dashboard (:4002)
   # ─────────────────────────────────────────────
+
+  # ─── Storefront read path ───────────────────────────────────────────
+  catalog-service:
+    build:
+      context: ./apps/demo-store/catalog-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-catalog-service
+    ports:
+      - "3004:3004"
+    environment:
+      SERVICE_NAME: catalog-service
+      PORT: 3004
+      DATABASE_URL: postgresql://app:secret@postgres:5432/ecommerce
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  review-service:
+    build:
+      context: ./apps/demo-store/review-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-review-service
+    ports:
+      - "3005:3005"
+    environment:
+      SERVICE_NAME: review-service
+      PORT: 3005
+      DATABASE_URL: postgresql://app:secret@postgres:5432/ecommerce
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  recommendation-service:
+    build:
+      context: ./apps/demo-store/recommendation-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-recommendation-service
+    ports:
+      - "3006:3006"
+    environment:
+      SERVICE_NAME: recommendation-service
+      PORT: 3006
+      CATALOG_SERVICE_URL: http://catalog-service:3004
+      REVIEW_SERVICE_URL: http://review-service:3005
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      catalog-service:
+        condition: service_started
+      review-service:
+        condition: service_started
+      otel-collector:
+        condition: service_started
 
   demo-frontend:
     build:

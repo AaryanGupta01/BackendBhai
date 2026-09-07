@@ -47,18 +47,3 @@ export async function maybeInjectCacheMiss<T>(
   }
   return fetchFromCache();
 }
-
-/**
- * Shared global simulation: when the gateway forwards x-simulate-random, pick which
- * failure modes fire for this particular request so repeated orders differ.
- */
-export function pickRandomSimulation(headers: Record<string, string | undefined>) {
-  const rand = Math.random();
-  const active = headers['x-simulate-random'] === 'true';
-  return {
-    slow: active && rand < 0.3,
-    fiftyThree: active && rand < 0.1,
-    heavy: active && rand < 0.1,
-    cacheMiss: active && rand < 0.1
-  };
-}
