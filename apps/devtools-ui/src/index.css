@@ -1,12 +1,79 @@
 @import "tailwindcss";
 
+/**
+ * Design language: a technical instrument, not a consumer app.
+ * Monospace throughout, uppercase micro-labels, hard hairline borders, square
+ * corners and no shadows. Depth comes from borders and background steps rather
+ * than blur, which keeps dense telemetry readable.
+ */
 @theme {
-  --color-earth-base: #FDFBF7;
-  --color-earth-border: #EFEBE4;
-  --color-earth-text: #2D241B;
-  --color-earth-muted: #8C8276;
+  /* Surfaces */
+  --color-earth-base: #F4EFEA;      /* warm cream page ground */
+  --color-earth-surface: #FFFFFF;   /* panels and cards */
+  --color-earth-sunken: #EDE7E0;    /* inset areas, table headers */
+
+  /* Lines: a soft one for dividers, a hard one for panel edges */
+  --color-earth-border: #DCD5CB;
+  --color-earth-ink: #383838;
+
+  /* Text */
+  --color-earth-text: #383838;
+  --color-earth-muted: #8A8279;
+
+  /* Brand + state */
   --color-earth-accent: #5C4033;
-  --color-earth-error: #E01627;
-  --color-earth-success: #47E03F;
-  --color-earth-terminal: #4A3B32;
+  --color-earth-highlight: #97D4FF; /* flat accent fill, always on a dark border */
+  --color-earth-error: #C62828;
+  --color-earth-success: #2F7D32;
+  --color-earth-warning: #B26A00;
+  --color-earth-terminal: #2E2A27;
+
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* Monospace is the default voice of the app; numbers and paths dominate the UI. */
+body {
+  font-family: var(--font-mono);
+  background-color: var(--color-earth-base);
+  color: var(--color-earth-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tailwind's preflight sets `background-color: transparent` on button, which beats
+   a plain bg-* utility. Buttons here opt in explicitly instead of fighting it. */
+button {
+  font-family: inherit;
+}
+
+/* Animated dash used to trace the selected request across the graph. This lived
+   only in the Tailwind v3 config, which v4 never reads, so the flow on selected
+   edges was silently static. */
+@keyframes flow {
+  to {
+    stroke-dashoffset: -150;
+  }
+}
+
+/* Scrollbars styled to match the flat, bordered surfaces. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-earth-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-earth-border);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-earth-muted);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }

@@ -344,21 +344,21 @@ export default function App() {
   const selectedNode = graphNodes.find((n) => n.id === selectedNodeId) || null;
 
   const chip = (active: boolean) =>
-    `px-2 py-1 rounded-md text-[11px] font-semibold transition-colors border ${
+    `px-2 py-1 rounded-[2px] text-[10px] uppercase tracking-[0.08em] font-semibold transition-colors border ${
       active
-        ? 'bg-earth-accent! text-white border-earth-accent!'
-        : 'bg-white text-earth-muted border-earth-border hover:border-earth-accent/50'
+        ? 'bg-earth-accent! text-white border-earth-ink!'
+        : 'bg-earth-surface text-earth-muted border-earth-border hover:border-earth-ink hover:text-earth-text'
     }`;
 
   return (
     <div className="flex h-screen w-screen bg-earth-base text-earth-text font-sans antialiased overflow-hidden selection:bg-earth-border">
       {/* ================= 1. SIDEPANE ================= */}
-      <aside className="w-[300px] bg-white border-r border-earth-border flex flex-col shrink-0 z-20">
+      <aside className="w-[300px] bg-earth-surface border-r border-earth-ink flex flex-col shrink-0 z-20">
         <div className="px-6 py-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-earth-accent rounded-full flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 bg-earth-accent rounded-[2px] flex items-center justify-center">
             <Activity className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg text-earth-text tracking-tight">BackendBhai</span>
+          <span className="font-semibold text-base text-earth-text uppercase tracking-[0.12em]">BackendBhai</span>
           <span
             title={connected ? 'Live' : 'Reconnecting'}
             className={`ml-auto w-2 h-2 rounded-full ${connected ? 'bg-earth-success' : 'bg-earth-muted'}`}
@@ -366,14 +366,14 @@ export default function App() {
         </div>
 
         <div className="px-5 mb-3">
-          <div className="relative flex items-center w-full h-10 rounded-lg border border-earth-border bg-white overflow-hidden focus-within:border-earth-accent focus-within:ring-1 focus-within:ring-earth-accent transition-all">
+          <div className="relative flex items-center w-full h-9 rounded-[2px] border border-earth-ink bg-earth-surface overflow-hidden focus-within:border-earth-accent transition-colors">
             <Search className="w-4 h-4 text-earth-muted ml-3" />
             <input
               type="text"
               placeholder="Search traces..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-full px-3 text-sm text-earth-text placeholder:text-earth-muted bg-transparent outline-none"
+              className="w-full h-full px-2.5 text-[13px] text-earth-text placeholder:text-earth-muted bg-transparent outline-none"
             />
           </div>
         </div>
@@ -398,7 +398,7 @@ export default function App() {
             className={`w-full ${chip(slowerThanMs > 0)} cursor-pointer outline-none`}
           >
             {SLOW_THRESHOLDS.map((t) => (
-              <option key={t.value} value={t.value} className="text-earth-text bg-white">
+              <option key={t.value} value={t.value} className="text-earth-text bg-earth-surface">
                 {t.value === 0 ? t.label : `Slower than ${t.label.replace('> ', '')}`}
               </option>
             ))}
@@ -433,18 +433,18 @@ export default function App() {
             <div className="px-3 py-6 text-xs text-earth-muted leading-relaxed">
               {loadError ? (
                 <>
-                  <div className="font-semibold text-earth-error mb-1">Platform unreachable</div>
+                  <div className="font-semibold text-earth-error mb-1 uppercase tracking-[0.08em]">Platform unreachable</div>
                   {loadError}
                 </>
               ) : requests.length === 0 ? (
                 <>
-                  <div className="font-semibold text-earth-text mb-1">Waiting for telemetry</div>
+                  <div className="font-semibold text-earth-text mb-1 uppercase tracking-[0.08em]">Waiting for telemetry</div>
                   Connect a product and send it traffic. Nothing is shown until real requests
                   arrive.
                 </>
               ) : (
                 <>
-                  <div className="font-semibold text-earth-text mb-1">No matching requests</div>
+                  <div className="font-semibold text-earth-text mb-1 uppercase tracking-[0.08em]">No matching requests</div>
                   {requests.length} captured, none match the current filters.
                 </>
               )}
@@ -458,28 +458,30 @@ export default function App() {
               <div
                 key={req.traceId}
                 onClick={() => handleSelectRequest(req.traceId)}
-                className={`flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                  isSelected ? 'bg-earth-accent text-white shadow-md' : 'text-earth-text hover:bg-earth-base'
+                className={`flex items-center justify-between px-2.5 py-2.5 rounded-[2px] cursor-pointer border transition-colors duration-150 ${
+                  isSelected
+                    ? 'bg-earth-accent text-white border-earth-ink'
+                    : 'text-earth-text border-transparent hover:bg-earth-sunken hover:border-earth-border'
                 }`}
               >
                 <div className="flex items-center gap-3 truncate">
                   <div
-                    className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] tracking-[0.06em] border ${
                       isSelected
-                        ? 'bg-white/20 text-white'
+                        ? 'bg-white/20 text-white border-white/30'
                         : isError
-                        ? 'bg-earth-error/10 text-earth-error'
-                        : 'bg-earth-success/10 text-earth-success'
+                        ? 'bg-earth-error/10 text-earth-error border-earth-error/30'
+                        : 'bg-earth-success/10 text-earth-success border-earth-success/30'
                     }`}
                   >
                     {req.method}
                   </div>
-                  <span className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-earth-text'}`}>
+                  <span className={`text-[13px] truncate ${isSelected ? 'text-white' : 'text-earth-text'}`}>
                     {req.path}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className={`font-mono text-[10px] ${isSelected ? 'text-white/70' : 'text-earth-muted'}`}>
+                  <span className={`text-[10px] tabular-nums ${isSelected ? 'text-white/70' : 'text-earth-muted'}`}>
                     {ms(req.durationMs)}
                   </span>
                   {isError && !isSelected && <AlertCircle className="w-3.5 h-3.5 text-earth-error" />}
@@ -493,8 +495,8 @@ export default function App() {
       {/* ================= 2. MAIN SECTION ================= */}
       <main className="flex-1 flex flex-col min-w-0 bg-earth-base">
         <div className="px-8 pt-7 pb-4 text-center shrink-0">
-          <h2 className="text-2xl font-bold text-earth-text tracking-tight">System Topology Graph</h2>
-          <p className="text-earth-muted text-sm mt-1">
+          <h2 className="text-[22px] font-normal text-earth-text uppercase tracking-[0.14em]">System Topology Graph</h2>
+          <p className="text-earth-muted text-[12px] mt-2">
             {selectedRequest
               ? 'Highlighted services took part in the selected trace. Latency is per hop.'
               : 'Discovered from telemetry. Drag to pan, scroll to zoom, hover a node to trace pathways.'}
@@ -523,7 +525,7 @@ export default function App() {
           {graphNodes.length === 0 && !loading && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center max-w-md px-6">
-                <div className="text-earth-text font-semibold mb-2">No services discovered yet</div>
+                <div className="text-earth-text font-semibold mb-2 uppercase tracking-[0.1em] text-[12px]">No services discovered yet</div>
                 <p className="text-earth-muted text-sm">
                   The graph is built from real telemetry. Point a product at this platform's OTLP
                   endpoint and send it traffic, or run endpoint discovery to explore its API
@@ -593,7 +595,7 @@ export default function App() {
                         x={(sx + tx) / 2}
                         y={(sy + ty) / 2 - 8}
                         textAnchor="middle"
-                        className="fill-earth-muted text-[10px] font-mono"
+                        className="fill-earth-muted text-[9px]"
                       >
                         {edge.avgDurationMs}ms avg
                       </text>
@@ -623,10 +625,10 @@ export default function App() {
                   }}
                   onMouseEnter={() => !selectedTraceId && setHoveredNodeId(node.id)}
                   onMouseLeave={() => !selectedTraceId && setHoveredNodeId(null)}
-                  className={`absolute w-48 p-4 rounded-2xl transition-all duration-500 ease-in-out z-10 ${
+                  className={`absolute w-48 p-3.5 rounded-[2px] border transition-all duration-300 ease-out z-10 ${
                     isClickable ? 'cursor-pointer' : 'cursor-default'
-                  } ${!isHighlighted ? 'opacity-40 scale-95' : 'opacity-100 scale-100 hover:-translate-y-1.5'} ${
-                    isError ? 'bg-white shadow-xl ring-1 ring-earth-error/30' : 'bg-white shadow-lg ring-1 ring-earth-border'
+                  } ${!isHighlighted ? 'opacity-35' : 'opacity-100 hover:-translate-y-0.5'} ${
+                    isError ? 'bg-earth-surface border-earth-error' : 'bg-earth-surface border-earth-ink'
                   }`}
                   style={{
                     left: node.x - canvas.minX,
@@ -634,31 +636,31 @@ export default function App() {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  {isError && <div className="absolute -inset-1 bg-earth-error/5 rounded-3xl blur-md -z-10 animate-pulse" />}
-                  <div className="text-[9px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">
+                  {isError && <div className="absolute -inset-px border border-earth-error/40 -z-10 animate-pulse" />}
+                  <div className="text-[9px] font-bold text-earth-muted uppercase tracking-[0.14em] mb-1.5">
                     {node.kind || 'unclassified'}
                   </div>
-                  <div className="font-semibold flex items-center gap-2 text-sm text-earth-text">
+                  <div className="font-semibold flex items-center gap-2 text-[13px] text-earth-text">
                     <Icon className={`w-4 h-4 ${isError ? 'text-earth-error' : 'text-earth-accent'}`} />
                     <span className="truncate">{node.label}</span>
                   </div>
 
                   {inTrace ? (
                     <div className="mt-2.5 space-y-0.5">
-                      <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
+                      <div className={`text-xs font-bold tabular-nums ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
                         {ms(node.traceSelfMs)} self
                       </div>
-                      <div className="text-[10px] font-mono text-earth-muted">
+                      <div className="text-[10px] text-earth-muted tabular-nums">
                         {ms(node.traceTotalMs)} total
                       </div>
                     </div>
                   ) : (
                     <div className="mt-2.5 space-y-0.5">
-                      <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
+                      <div className={`text-xs font-bold tabular-nums ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
                         {node.spanCount > 0 ? `${node.avgDurationMs}ms avg` : 'no spans'}
                       </div>
                       {node.spanCount > 0 && (
-                        <div className="text-[10px] font-mono text-earth-muted">
+                        <div className="text-[10px] text-earth-muted tabular-nums">
                           p95 {node.p95DurationMs}ms · {node.spanCount} spans
                         </div>
                       )}
@@ -670,7 +672,7 @@ export default function App() {
 
             {selectedNode && (
               <div
-                className="absolute w-72 bg-white rounded-xl shadow-2xl ring-1 ring-earth-border overflow-hidden cursor-default z-50"
+                className="absolute w-72 bg-earth-surface rounded-[2px] border border-earth-ink overflow-hidden cursor-default z-50"
                 style={{
                   left: selectedNode.x - canvas.minX + 120,
                   top: selectedNode.y - canvas.minY,
@@ -681,15 +683,15 @@ export default function App() {
               >
                 {(selectedTraceId ? selectedNode.traceStatus === 'error' : selectedNode.errorCount > 0) ? (
                   <>
-                    <div className="p-3 border-b bg-earth-error/10 border-earth-error/20 flex justify-between items-start">
-                      <h3 className="font-bold text-earth-error flex items-center gap-1.5 text-sm">
+                    <div className="p-2.5 border-b bg-earth-error/10 border-earth-ink flex justify-between items-start">
+                      <h3 className="font-bold text-earth-error flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em]">
                         <AlertCircle className="w-4 h-4" /> Errors recorded
                       </h3>
                       <button onClick={() => setSelectedNodeId(null)} className="p-1 hover:bg-earth-error/10 rounded">
                         <X className="w-3.5 h-3.5 text-earth-error" />
                       </button>
                     </div>
-                    <div className="p-3 bg-earth-base text-xs font-mono text-earth-text space-y-1">
+                    <div className="p-3 bg-earth-sunken text-[11px] text-earth-text space-y-1">
                       <div>service: {selectedNode.label}</div>
                       <div>kind: {selectedNode.kind || 'unclassified'}</div>
                       <div>errors: {selectedNode.errorCount}</div>
@@ -699,15 +701,15 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <div className="p-3 border-b bg-earth-success/10 border-earth-success/20 flex justify-between items-start">
-                      <h3 className="font-bold text-earth-success flex items-center gap-1.5 text-sm">
+                    <div className="p-2.5 border-b bg-earth-success/10 border-earth-ink flex justify-between items-start">
+                      <h3 className="font-bold text-earth-success flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em]">
                         <CheckCircle2 className="w-4 h-4" /> Clean execution
                       </h3>
                       <button onClick={() => setSelectedNodeId(null)} className="p-1 hover:bg-earth-success/10 rounded">
                         <X className="w-3.5 h-3.5 text-earth-success" />
                       </button>
                     </div>
-                    <div className="p-3 bg-earth-base text-xs font-mono text-earth-text space-y-1">
+                    <div className="p-3 bg-earth-sunken text-[11px] text-earth-text space-y-1">
                       <div>service: {selectedNode.label}</div>
                       <div>kind: {selectedNode.kind || 'unclassified'}</div>
                       <div>spans: {selectedNode.spanCount}</div>
@@ -728,7 +730,7 @@ export default function App() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => zoomAt(1.2)}
               title="Zoom in"
-              className="w-8 h-8 rounded-lg bg-white ring-1 ring-earth-border shadow flex items-center justify-center hover:bg-earth-base transition-colors"
+              className="w-7 h-7 rounded-[2px] bg-earth-surface border border-earth-ink flex items-center justify-center hover:bg-earth-sunken transition-colors"
             >
               <ZoomIn className="w-4 h-4 text-earth-text" />
             </button>
@@ -736,7 +738,7 @@ export default function App() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => zoomAt(1 / 1.2)}
               title="Zoom out"
-              className="w-8 h-8 rounded-lg bg-white ring-1 ring-earth-border shadow flex items-center justify-center hover:bg-earth-base transition-colors"
+              className="w-7 h-7 rounded-[2px] bg-earth-surface border border-earth-ink flex items-center justify-center hover:bg-earth-sunken transition-colors"
             >
               <ZoomOut className="w-4 h-4 text-earth-text" />
             </button>
@@ -744,11 +746,11 @@ export default function App() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={fitToView}
               title="Fit to view"
-              className="w-8 h-8 rounded-lg bg-white ring-1 ring-earth-border shadow flex items-center justify-center hover:bg-earth-base transition-colors"
+              className="w-7 h-7 rounded-[2px] bg-earth-surface border border-earth-ink flex items-center justify-center hover:bg-earth-sunken transition-colors"
             >
               <Maximize2 className="w-4 h-4 text-earth-text" />
             </button>
-            <div className="mt-1 text-[10px] font-mono text-earth-muted text-center select-none">
+            <div className="mt-1 text-[10px] text-earth-muted text-center select-none tabular-nums">
               {Math.round(view.scale * 100)}%
             </div>
           </div>
@@ -756,7 +758,7 @@ export default function App() {
 
         {/* ================= 3. REPLAY CONSOLE ================= */}
         <div
-          className="bg-white border-t border-earth-border shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(92,64,51,0.03)] z-30"
+          className="bg-earth-surface border-t border-earth-ink shrink-0 flex flex-col z-30"
           style={{ height: terminalOpen ? terminalHeight : 44 }}
         >
           {terminalOpen && (
@@ -770,13 +772,13 @@ export default function App() {
 
           <button
             onClick={() => setTerminalOpen((o) => !o)}
-            className="px-6 py-2.5 border-b border-earth-border flex items-center justify-between shrink-0 bg-earth-base hover:bg-earth-border/30 transition-colors"
+            className="px-5 py-2 border-b border-earth-border flex items-center justify-between shrink-0 bg-earth-sunken hover:bg-earth-border/40 transition-colors"
           >
-            <div className="flex items-center gap-2.5 font-bold text-earth-accent text-sm">
-              <TerminalSquare className="w-4 h-4" />
+            <div className="flex items-center gap-2.5 font-bold text-earth-accent text-[11px] uppercase tracking-[0.12em]">
+              <TerminalSquare className="w-3.5 h-3.5" />
               <span>Replay Console</span>
               {!terminalOpen && selectedRequest && (
-                <span className="font-mono text-[11px] font-normal text-earth-muted">
+                <span className="text-[10px] font-normal normal-case text-earth-muted">
                   {selectedRequest.method} {selectedRequest.path}
                 </span>
               )}
@@ -792,10 +794,10 @@ export default function App() {
             <div className="flex-1 flex flex-col min-h-0 p-6 gap-4">
               <div className="flex items-center justify-between shrink-0">
                 <div>
-                  <div className="text-[10px] font-bold text-earth-muted uppercase tracking-widest mb-1.5">
+                  <div className="text-[9px] font-bold text-earth-muted uppercase tracking-[0.14em] mb-1.5">
                     Target Endpoint
                   </div>
-                  <div className="font-mono text-sm px-3 py-2 rounded-lg border border-earth-border bg-earth-base text-earth-text">
+                  <div className="text-[12px] px-2.5 py-1.5 rounded-[2px] border border-earth-ink bg-earth-sunken text-earth-text">
                     {selectedRequest ? (
                       <>
                         <span className="font-bold text-earth-accent">{selectedRequest.method}</span>{' '}
@@ -809,14 +811,14 @@ export default function App() {
                 <button
                   onClick={handleReplay}
                   disabled={!selectedRequest || isReplaying}
-                  className="flex items-center gap-2 text-sm font-semibold text-earth-text hover:text-earth-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] font-bold px-3 py-2 rounded-[2px] border border-earth-ink bg-earth-highlight text-earth-ink hover:bg-earth-highlight/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <Play className="w-4 h-4" />
                   {isReplaying ? 'Executing…' : 'Run Diagnostics'}
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 rounded-lg bg-earth-terminal text-white/90 p-4 font-mono text-xs overflow-auto whitespace-pre-wrap">
+              <div className="flex-1 min-h-0 rounded-[2px] border border-earth-ink bg-earth-terminal text-white/90 p-4 text-[11px] leading-relaxed overflow-auto whitespace-pre-wrap">
                 {replayLog || <span className="text-earth-muted italic">Waiting for execution command...</span>}
               </div>
             </div>
