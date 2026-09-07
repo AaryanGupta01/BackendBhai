@@ -480,6 +480,12 @@ allowBuilds:
   protobufjs: true
 ```
 
+### Windows: `The system cannot find the path specified. (os error 3)` during build
+
+Windows caps paths at 260 characters and pnpm writes deeply nested internal files.
+Clone somewhere short — `C:\dev\BackendBhai` is fine, a folder buried under
+`AppData\Local\Temp\...` is not.
+
 ### Port is already allocated
 
 Another program holds one of the ports. Find it:
