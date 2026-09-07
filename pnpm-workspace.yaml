@@ -1,0 +1,11 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "apps/demo-store/*"
+  - "services/*"
+
+# esbuild needs its postinstall to fetch the platform binary (Vite depends on it);
+# protobufjs's postinstall generates its runtime helpers.
+allowBuilds:
+  esbuild: true
+  protobufjs: true

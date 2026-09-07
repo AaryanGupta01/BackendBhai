@@ -1,0 +1,37 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "order-service" } }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "@opentelemetry/instrumentation-pg" },
+          "spans": [
+            {
+              "traceId": "cafebad00000000cafebad0000000000",
+              "spanId": "8888888888888888",
+              "parentSpanId": "9999999999999999",
+              "name": "INSERT orders",
+              "kind": 2,
+              "startTimeUnixNano": "1725345900000000000",
+              "endTimeUnixNano": "1725345903000000000",
+              "status": { "code": 1 },
+              "attributes": [
+                { "key": "db.system", "value": { "stringValue": "postgresql" } },
+                { "key": "db.statement", "value": { "stringValue": "INSERT INTO orders (user_id, items, status) SELECT pg_sleep(3), $1, $2, 'pending' FROM generate_series(1, 12)" } },
+                { "key": "db.operation", "value": { "stringValue": "INSERT" } },
+                { "key": "db.sql.table", "value": { "stringValue": "orders" } },
+                { "key": "db.name", "value": { "stringValue": "ecommerce" } },
+                { "key": "net.peer.name", "value": { "stringValue": "postgres" } }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -2,3 +2,9 @@
 node_modules/
 dist/
 .env
+.ai/
+graphify-out/
+AGENTS.md
+dev*.md
+tmp/
+*.tmp

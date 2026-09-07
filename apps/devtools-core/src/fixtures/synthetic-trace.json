@@ -1,0 +1,49 @@
+{
+  "trace": {
+    "id": "5b8efff798038103d269b633813fc60c",
+    "name": "POST /api/orders",
+    "root_service": "api-gateway",
+    "start_time": 1725345600000,
+    "end_time": 1725345601234,
+    "duration_ms": 1234,
+    "status": "ok",
+    "method": "POST",
+    "path": "/api/orders",
+    "status_code": 201,
+    "request_headers": { "content-type": "application/json", "authorization": "Bearer user-token" },
+    "request_body": "{\"userId\": \"user-42\", \"items\": [{\"id\": \"item-1\", \"qty\": 2}], \"credit_card\": \"1234-5678\"}",
+    "response_headers": { "content-type": "application/json" },
+    "response_body": "{\"id\": \"order-789\", \"status\": \"pending\"}",
+    "response_size": 256,
+    "services": ["api-gateway", "auth-service", "order-service", "payment-service"],
+    "metadata": {}
+  },
+  "spans": [
+    {
+      "id": "eee19b7ec3c1b174",
+      "trace_id": "5b8efff798038103d269b633813fc60c",
+      "parent_span_id": "abc123def456",
+      "service_name": "payment-service",
+      "operation_name": "POST /charges",
+      "span_type": "server",
+      "start_time": 1725345600800,
+      "end_time": 1725345601050,
+      "duration_ms": 250,
+      "status": "ok",
+      "status_message": null,
+      "attributes": { "http.method": "POST", "http.url": "http://mock-payment-api:4000/charges", "http.status_code": 200, "authorization": "Bearer internal-token" },
+      "depth": 3,
+      "order": 4
+    }
+  ],
+  "logs": [
+    {
+      "trace_id": "5b8efff798038103d269b633813fc60c",
+      "service_name": "order-service",
+      "level": "info",
+      "message": "Order created successfully",
+      "attributes": { "order_id": "order-789", "user_id": "user-42" },
+      "timestamp": 1725345600950
+    }
+  ]
+}

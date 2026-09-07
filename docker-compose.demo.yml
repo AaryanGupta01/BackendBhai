@@ -1,0 +1,152 @@
+# BackendBhai — Demo product overlay.
+#
+# The platform (docker-compose.yml) monitors products; it does not contain them.
+# This overlay adds the simulated e-commerce product used for demos:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+services:
+  # The demo product needs its own database alongside the platform's.
+  postgres:
+    volumes:
+      - ./infrastructure/db/ecommerce:/docker-entrypoint-initdb.d/ecommerce
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d devtools && pg_isready -U app -d ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # The overlay tells the platform where this product is reachable from inside the
+  # compose network. The platform itself stays product-agnostic.
+  devtools-core:
+    environment:
+      PRODUCT_NAME: Demo e-commerce store
+      PRODUCT_BASE_URL: http://api-gateway:3000
+  redis:
+    image: redis:7-alpine
+    container_name: backendbhai-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ./apps/demo-store/api-gateway
+      dockerfile: Dockerfile
+    container_name: backendbhai-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      SERVICE_NAME: api-gateway
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      ORDER_SERVICE_URL: http://order-service:3002
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      - auth-service
+      - order-service
+      - otel-collector
+
+  auth-service:
+    build:
+      context: ./apps/demo-store/auth-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      SERVICE_NAME: auth-service
+      PORT: 3001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      - otel-collector
+
+  order-service:
+    build:
+      context: ./apps/demo-store/order-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-order-service
+    ports:
+      - "3002:3002"
+    environment:
+      SERVICE_NAME: order-service
+      PORT: 3002
+      DATABASE_URL: postgresql://app:secret@postgres:5432/ecommerce
+      REDIS_URL: redis://redis:6379
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      payment-service:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+
+  payment-service:
+    build:
+      context: ./apps/demo-store/payment-service
+      dockerfile: Dockerfile
+    container_name: backendbhai-payment-service
+    ports:
+      - "3003:3003"
+    environment:
+      SERVICE_NAME: payment-service
+      PORT: 3003
+      MOCK_PAYMENT_URL: http://mock-payment-api:4000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      - mock-payment-api
+      - otel-collector
+
+  mock-payment-api:
+    build:
+      context: ./apps/demo-store/mock-payment-api
+      dockerfile: Dockerfile
+    container_name: backendbhai-mock-payment-api
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+    volumes:
+      - ./mocks/payment-api:/home/wiremock
+
+  # ─────────────────────────────────────────────
+  # Master Error Injector Dashboard (:4002)
+  # ─────────────────────────────────────────────
+
+  demo-frontend:
+    build:
+      context: ./apps/demo-store/frontend
+      dockerfile: Dockerfile
+    container_name: backendbhai-demo-frontend
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      API_GATEWAY_URL: http://localhost:3000
+    depends_on:
+      - api-gateway
+
+  # ─────────────────────────────────────────────
+  # Amazon-Inspired Storefront (:4003)
+  # Dynamic checkout state controlled by Master Error Injector
+  # ─────────────────────────────────────────────
+
+  amazon-store:
+    build:
+      context: ./apps/demo-store/amazon-store
+      dockerfile: Dockerfile
+    container_name: backendbhai-amazon-store
+    ports:
+      - "4003:4003"
+    environment:
+      PORT: 4003
+      API_GATEWAY_URL: http://localhost:3000
+    depends_on:
+      - api-gateway
