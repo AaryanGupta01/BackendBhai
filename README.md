@@ -147,8 +147,8 @@ time, so skipping this makes the next step fail with errors like
 pnpm -r build
 ```
 
-This compiles all 11 packages — the platform server, the React UI, the shared types, the
-instrumentation library and the seven demo services. Expect `Done` for each.
+This compiles all 14 packages — the platform server, the React UI, the shared types, the
+instrumentation library and the ten demo services. Expect `Done` for each.
 
 ### Step 4 — Start everything with Docker
 
@@ -174,12 +174,13 @@ Later starts take seconds.
 docker compose -f docker-compose.yml -f docker-compose.demo.yml ps
 ```
 
-You should see **11 containers**, all `Up`, with `postgres` and `redis` marked
+You should see **14 containers**, all `Up`, with `postgres` and `redis` marked
 `(healthy)`:
 
 ```
-amazon-store, api-gateway, auth-service, demo-frontend, devtools-core,
-mock-payment-api, order-service, otel-collector, payment-service, postgres, redis
+amazon-store, api-gateway, auth-service, catalog-service, demo-frontend,
+devtools-core, mock-payment-api, order-service, otel-collector, payment-service,
+postgres, recommendation-service, redis, review-service
 ```
 
 If any container is `Exited` or `Restarting`, jump to
@@ -247,12 +248,15 @@ itself from the services that actually took part.
 
 | Port | What | URL |
 |------|------|-----|
-| 4003 | Amazon-style storefront — click through this | <http://localhost:4003> |
-| 4002 | Failure Simulator — inject faults | <http://localhost:4002> |
+| 4003 | **ArrayMart storefront** — browse, search, buy | <http://localhost:4003> |
+| 4002 | **ArrayMart Ops Console** — load generator + fault injection | <http://localhost:4002> |
 | 3000 | API Gateway (entry point) | <http://localhost:3000> |
 | 3001 | Auth service | <http://localhost:3001> |
 | 3002 | Order service | <http://localhost:3002> |
 | 3003 | Payment service | <http://localhost:3003> |
+| 3004 | Catalog service (Postgres + Redis cache) | <http://localhost:3004> |
+| 3005 | Review service | <http://localhost:3005> |
+| 3006 | Recommendation service (fans out to catalog + review) | <http://localhost:3006> |
 | 4000 | Mock payment provider | <http://localhost:4000> |
 | 6379 | Redis | `redis://localhost:6379` |
 
@@ -597,13 +601,16 @@ backendbhai/
 │   ├── devtools-ui/            # React UI, served by devtools-core on :4001
 │   ├── telemetry-collector/    # OpenTelemetry instrumentation library
 │   └── demo-store/             # Example product being monitored
-│       ├── api-gateway/        # :3000  entry point
-│       ├── auth-service/       # :3001
-│       ├── order-service/      # :3002
-│       ├── payment-service/    # :3003
-│       ├── mock-payment-api/   # :4000  external provider
-│       ├── frontend/           # :4002  failure simulator
-│       └── amazon-store/       # :4003  storefront
+│       ├── api-gateway/            # :3000  entry point
+│       ├── auth-service/           # :3001
+│       ├── order-service/          # :3002
+│       ├── payment-service/        # :3003
+│       ├── catalog-service/        # :3004  products, search, Redis cache
+│       ├── review-service/         # :3005  product reviews
+│       ├── recommendation-service/ # :3006  fans out to catalog + review
+│       ├── mock-payment-api/       # :4000  external provider
+│       ├── frontend/               # :4002  ArrayMart Ops Console
+│       └── amazon-store/           # :4003  ArrayMart storefront
 ├── packages/shared/            # Shared TypeScript types
 ├── infrastructure/             # Collector config, database init
 ├── scripts/                    # Seeding, traffic generation, verification
