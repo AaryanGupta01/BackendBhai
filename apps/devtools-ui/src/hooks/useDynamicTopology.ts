@@ -23,7 +23,8 @@ const KIND_ICONS: Record<string, any> = {
 const FALLBACK_ICON = Shield;
 
 // Layout constants. These are presentation, not data.
-const X_SPACING = 260;
+// Wide enough that an edge label fits in the gap between two node cards (192px wide).
+const X_SPACING = 340;
 const Y_SPACING = 150;
 const BASE_X = 150;
 const CENTER_Y = 330;

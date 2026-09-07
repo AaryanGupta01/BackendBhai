@@ -22,6 +22,19 @@ const CANVAS_PAD = 80;
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
 
+// A hop that succeeded but took at least this long is called out as slow. Matches the
+// "Slower than 1s" option in the sidebar filter, so the graph and the list agree on
+// what slow means.
+const SLOW_HOP_MS = 1000;
+
+// Colours come from the theme rather than literals so the graph cannot drift from
+// the rest of the UI.
+const FLOW_STROKE: Record<'error' | 'slow' | 'ok', string> = {
+  error: 'var(--color-earth-error)',
+  slow: 'var(--color-earth-warning)',
+  ok: 'var(--color-earth-success)'
+};
+
 type StatusFilter = 'all' | 'error' | 'success';
 
 // Offered thresholds for "slow". Chosen as round numbers rather than derived, since
@@ -341,6 +354,54 @@ export default function App() {
     return reachable;
   }, [hoveredNodeId, graphEdges]);
 
+  // Geometry and per-edge state, computed once and shared by the two SVG layers:
+  // lines are drawn beneath the node cards, labels above them, so a label is never
+  // hidden behind a card when an edge is short.
+  const renderableEdges = useMemo(() => {
+    return graphEdges.flatMap((edge) => {
+      const s = graphNodes.find((n) => n.id === edge.source);
+      const t = graphNodes.find((n) => n.id === edge.target);
+      if (!s || !t) return [];
+
+      const sx = s.x - canvas.minX;
+      const sy = s.y - canvas.minY;
+      const tx = t.x - canvas.minX;
+      const ty = t.y - canvas.minY;
+      const dx = Math.abs(tx - sx);
+
+      const isHighlighted = selectedTraceId
+        ? edge.inSelectedTrace
+        : !!hoveredNodeId && connectedNodes.has(edge.source) && connectedNodes.has(edge.target);
+      const isDimmed =
+        (selectedTraceId && !edge.inSelectedTrace) ||
+        (!selectedTraceId && !!hoveredNodeId && !isHighlighted);
+
+      // What happened at the far end of this call decides the colour of the flow:
+      // it failed, it was slow, or it was fine.
+      const hopMs = t.traceTotalMs;
+      const flowState: 'error' | 'slow' | 'ok' =
+        t.traceStatus === 'error'
+          ? 'error'
+          : hopMs !== undefined && hopMs >= SLOW_HOP_MS
+          ? 'slow'
+          : 'ok';
+
+      return [{
+        edge,
+        // A cubic bezier with these control points has its midpoint at the plain
+        // midpoint of the endpoints, so a label placed there sits on the curve.
+        d: `M ${sx} ${sy} C ${sx + dx / 2} ${sy} ${tx - dx / 2} ${ty} ${tx} ${ty}`,
+        mx: (sx + tx) / 2,
+        my: (sy + ty) / 2,
+        isDimmed,
+        flowState,
+        hopMs,
+        showsHop: edge.inSelectedTrace && hopMs !== undefined
+      }];
+    });
+  }, [graphEdges, graphNodes, canvas, selectedTraceId, hoveredNodeId, connectedNodes]);
+
+
   const selectedNode = graphNodes.find((n) => n.id === selectedNodeId) || null;
 
   const chip = (active: boolean) =>
@@ -545,61 +606,31 @@ export default function App() {
             }}
           >
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
-              {graphEdges.map((edge) => {
-                const sourceNode = graphNodes.find((n) => n.id === edge.source);
-                const targetNode = graphNodes.find((n) => n.id === edge.target);
-                if (!sourceNode || !targetNode) return null;
-
-                const sx = sourceNode.x - canvas.minX;
-                const sy = sourceNode.y - canvas.minY;
-                const tx = targetNode.x - canvas.minX;
-                const ty = targetNode.y - canvas.minY;
-                const dx = Math.abs(tx - sx);
-                const pathData = `M ${sx} ${sy} C ${sx + dx / 2} ${sy} ${tx - dx / 2} ${ty} ${tx} ${ty}`;
-
-                const isHighlighted = selectedTraceId
-                  ? edge.inSelectedTrace
-                  : !!hoveredNodeId && connectedNodes.has(edge.source) && connectedNodes.has(edge.target);
-                const isDimmed =
-                  (selectedTraceId && !edge.inSelectedTrace) ||
-                  (!selectedTraceId && !!hoveredNodeId && !isHighlighted);
-                const isError = edge.status === 'error';
-
-                return (
-                  <g key={edge.id}>
+              {renderableEdges.map(({ edge, d, isDimmed, flowState }) => (
+                <g key={edge.id}>
+                  <path
+                    d={d}
+                    fill="none"
+                    // Neutral at rest. A dependency that has recorded errors is not a
+                    // highlighted path, so its error count lives in the label instead of
+                    // colouring the line, which otherwise reads as an active trace.
+                    className={`transition-all duration-500 ${
+                      isDimmed ? 'opacity-15 stroke-earth-muted' : 'stroke-earth-muted/45 stroke-[1.5px]'
+                    }`}
+                  />
+                  {edge.inSelectedTrace && (
                     <path
-                      d={pathData}
+                      d={d}
                       fill="none"
-                      // Neutral at rest. A dependency that has recorded errors is not a
-                      // highlighted path, so its error count goes in the label instead of
-                      // colouring the line, which otherwise reads as an active trace.
-                      className={`transition-all duration-500 ${
-                        isDimmed ? 'opacity-15 stroke-earth-muted' : 'stroke-earth-muted/45 stroke-[1.5px]'
-                      }`}
+                      stroke={FLOW_STROKE[flowState]}
+                      strokeWidth={flowState === 'ok' ? 3 : 4}
+                      strokeLinecap="round"
+                      strokeDasharray="50 100"
+                      style={{ animation: 'flow 2s linear infinite' }}
                     />
-                    {edge.inSelectedTrace && (
-                      <path
-                        d={pathData}
-                        fill="none"
-                        stroke={isError ? '#E01627' : '#47E03F'}
-                        strokeWidth={isError ? 4 : 3}
-                        strokeDasharray="50 100"
-                        style={{ animation: 'flow 2s linear infinite' }}
-                      />
-                    )}
-                    {!isDimmed && (
-                      <text
-                        x={(sx + tx) / 2}
-                        y={(sy + ty) / 2 - 8}
-                        textAnchor="middle"
-                        className="fill-earth-muted text-[10px] font-mono"
-                      >
-                        {edge.avgDurationMs}ms avg{edge.errorCount > 0 ? ` · ${edge.errorCount} err` : ''}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
+                  )}
+                </g>
+              ))}
             </svg>
 
             {graphNodes.map((node) => {
@@ -666,6 +697,53 @@ export default function App() {
                 </div>
               );
             })}
+
+            {/* Labels ride above the node cards on their own layer, with a halo in the
+                page colour, so they stay readable wherever an edge runs under a card
+                or two edges cross. */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ zIndex: 20 }}
+            >
+              {renderableEdges.map(({ edge, mx, my, isDimmed, showsHop, hopMs, flowState }) => (
+                <text
+                  key={edge.id}
+                  x={mx}
+                  y={my - 9}
+                  textAnchor="middle"
+                  stroke="var(--color-earth-base)"
+                  strokeWidth="4"
+                  paintOrder="stroke"
+                  className={`text-[11px] font-mono font-semibold transition-opacity duration-300 ${
+                    isDimmed ? 'opacity-25' : 'opacity-100'
+                  }`}
+                >
+                  {showsHop ? (
+                    // Inspecting one request: report that request's own hop time,
+                    // coloured the same way the flow along the edge is.
+                    <tspan
+                      className={
+                        flowState === 'error'
+                          ? 'fill-earth-error'
+                          : flowState === 'slow'
+                          ? 'fill-earth-warning'
+                          : 'fill-earth-success'
+                      }
+                    >
+                      {hopMs}ms
+                    </tspan>
+                  ) : (
+                    <>
+                      <tspan className="fill-earth-text">{edge.avgDurationMs}ms avg</tspan>
+                      {edge.errorCount > 0 && (
+                        <tspan className="fill-earth-error"> · {edge.errorCount} err</tspan>
+                      )}
+                    </>
+                  )}
+                </text>
+              ))}
+            </svg>
+
 
             {selectedNode && (
               <div

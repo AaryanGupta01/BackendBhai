@@ -8,5 +8,25 @@
   --color-earth-accent: #5C4033;
   --color-earth-error: #E01627;
   --color-earth-success: #47E03F;
+  /* Amber for a hop that succeeded but took too long — slow is its own state,
+     not a mild error, so it needs its own colour. */
+  --color-earth-warning: #E08A00;
   --color-earth-terminal: #4A3B32;
+}
+
+/* Dashes travelling along an edge, showing the direction a call flowed.
+   Must live here: the Tailwind v3 config file that used to declare it is never
+   read by v4, so this animation was silently static. */
+@keyframes flow {
+  to {
+    stroke-dashoffset: -150;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
