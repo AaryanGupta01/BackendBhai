@@ -744,13 +744,28 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="mt-2.5 space-y-0.5">
-                      <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
-                        {node.spanCount > 0 ? `${node.avgDurationMs}ms avg` : 'no requests'}
-                      </div>
-                      {node.spanCount > 0 && (
-                        <div className="text-[10px] font-mono text-earth-muted">
-                          p95 {node.p95DurationMs}ms · {node.spanCount} reqs
-                        </div>
+                      {node.spanCount > 0 ? (
+                        <>
+                          <div className={`text-xs font-mono font-bold ${isError ? 'text-earth-error' : 'text-earth-success'}`}>
+                            {node.avgDurationMs}ms avg
+                          </div>
+                          <div className="text-[10px] font-mono text-earth-muted">
+                            p95 {node.p95DurationMs}ms · {node.spanCount} reqs
+                          </div>
+                        </>
+                      ) : node.inboundCalls > 0 ? (
+                        // Uninstrumented dependency: report what its callers measured
+                        // rather than claiming it is idle.
+                        <>
+                          <div className={`text-xs font-mono font-bold ${node.inboundErrors > 0 ? 'text-earth-error' : 'text-earth-success'}`}>
+                            {node.inboundAvgMs}ms avg
+                          </div>
+                          <div className="text-[10px] font-mono text-earth-muted">
+                            {node.inboundCalls} calls in · as seen by callers
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-xs font-mono font-bold text-earth-muted">no traffic yet</div>
                       )}
                     </div>
                   )}
@@ -857,7 +872,7 @@ export default function App() {
                     <div className="p-3 bg-earth-base text-xs font-mono text-earth-text space-y-1">
                       <div>service: {selectedNode.label}</div>
                       <div>kind: {selectedNode.kind || 'unclassified'}</div>
-                      <div>requests: {selectedNode.spanCount}</div>
+                      <div>{selectedNode.spanCount > 0 ? `requests: ${selectedNode.spanCount}` : `inbound calls: ${selectedNode.inboundCalls}`}</div>
                       <div>avg: {ms(selectedNode.avgDurationMs)} · p95: {ms(selectedNode.p95DurationMs)}</div>
                       {selectedNode.traceSelfMs !== undefined && (
                         <div>this trace: {ms(selectedNode.traceSelfMs)} self / {ms(selectedNode.traceTotalMs)} total</div>

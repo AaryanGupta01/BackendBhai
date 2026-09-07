@@ -1,5 +1,14 @@
 export interface SimulationState {
-  mode: 'normal' | 'heavy' | 'invalid-auth' | 'payment-503' | 'slow-payment' | 'random';
+  mode:
+    | 'normal'
+    | 'heavy'
+    | 'invalid-auth'
+    | 'payment-503'
+    | 'slow-payment'
+    | 'cache-miss'
+    | 'catalog-503'
+    | 'reviews-503'
+    | 'browse-slow';
   active: boolean;
   version: number;
   updatedAt: string;

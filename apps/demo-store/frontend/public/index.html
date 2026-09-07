@@ -61,6 +61,13 @@
   .stat span{font-size:.71rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
   .stat.ok b{color:var(--ok)} .stat.bad b{color:var(--bad)} .stat.warn b{color:var(--warn)}
 
+  .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px}
+  .scn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 12px;text-align:left;transition:border-color .12s}
+  .scn:hover{border-color:var(--amber)}
+  .scn:disabled{opacity:.5;cursor:not-allowed}
+  .scn b{display:block;font-size:.86rem;margin-bottom:3px}
+  .scn span{display:block;font-size:.72rem;color:var(--muted);line-height:1.35}
+  .scn .meta{margin-top:6px;font-family:ui-monospace,monospace;font-size:.68rem;color:var(--amber)}
   .journeys{display:flex;flex-direction:column;gap:8px}
   .journey{display:flex;align-items:center;gap:11px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
   .journey input{accent-color:var(--amber);width:15px;height:15px}
@@ -118,6 +125,17 @@
             <span class="dot" id="stateDot"></span>
             <span id="stateText">Applied globally — every ArrayMart request picks this up, not just the ones started here.</span>
             <button class="btn ghost" style="margin-left:auto;padding:6px 13px" onclick="setMode('normal')">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Scenarios <span class="tag" id="scnTag"></span></h2>
+        <div class="body">
+          <div class="scenarios" id="scenarios"></div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:10px">
+            One click sets the failure mode, drives matching traffic, then puts the mode back
+            to normal. Open BackendBhai alongside to watch each one land.
           </div>
         </div>
       </div>
@@ -185,20 +203,25 @@
 const API = window.API_GATEWAY_URL || 'http://localhost:3000';
 
 const MODES = [
-  { id:'normal',       ic:'🟢', name:'Normal',        desc:'No injected failure. The happy path.' },
-  { id:'slow-payment', ic:'🐢', name:'Slow payment',  desc:'Payment provider stalls for 5s on every checkout.' },
-  { id:'payment-503',  ic:'💥', name:'Payment 503',   desc:'Provider returns 503. Orders fail at the last hop.' },
-  { id:'invalid-auth', ic:'🔒', name:'Auth timeout',  desc:'Auth hangs 5s then rejects with 401.' },
-  { id:'heavy',        ic:'🐘', name:'Heavy order',   desc:'Order expands past 10 items, triggering a 3s DB query.' },
-  { id:'random',       ic:'🎲', name:'Random chaos',  desc:'A mix of slow, failed and heavy on each request.' }
+  { id:'normal',       ic:'🟢', name:'Normal',         desc:'No injected failure. The happy path.' },
+  { id:'slow-payment', ic:'🐢', name:'Slow payment',   desc:'Payment provider stalls 5s on every checkout.' },
+  { id:'payment-503',  ic:'💥', name:'Payment 503',    desc:'Provider returns 503. Orders fail at the last hop.' },
+  { id:'invalid-auth', ic:'🔒', name:'Auth timeout',   desc:'Auth hangs 5s, then rejects with 401.' },
+  { id:'heavy',        ic:'🐘', name:'Heavy order',    desc:'Order expands past 10 items, triggering a 3s DB query.' },
+  { id:'cache-miss',   ic:'🧊', name:'Cache bypass',   desc:'Catalogue skips Redis, so every browse hits Postgres.' },
+  { id:'browse-slow',  ic:'🕰️', name:'Slow catalogue', desc:'Catalogue reads take 2s. Browsing crawls, checkout stays fine.' },
+  { id:'catalog-503',  ic:'📕', name:'Catalog down',   desc:'Catalogue returns 503. Product pages and search fail.' },
+  { id:'reviews-503',  ic:'🗣️', name:'Reviews down',   desc:'Reviews return 503. Recommendations degrade but still answer.' }
 ];
 
 const JOURNEYS = [
   { id:'browse',   name:'Browse the catalogue', desc:'Categories, a department listing, then a product page', calls:'4-6 calls', on:true },
-  { id:'search',   name:'Search and open',      desc:'Search, then open a result and load its reviews',        calls:'3-4 calls', on:true },
-  { id:'discover', name:'Discover',             desc:'Recommendations — fans out to catalog and review',        calls:'2-3 calls', on:true },
-  { id:'purchase', name:'Buy something',        desc:'Product, then place a real order through checkout',       calls:'3-4 calls', on:true },
-  { id:'review',   name:'Leave a review',       desc:'Post a review, occasionally an invalid one (422)',        calls:'2 calls',   on:false }
+  { id:'search',   name:'Search and open',      desc:'Search, then open a result and load its reviews',       calls:'3-4 calls', on:true },
+  { id:'discover', name:'Discover',             desc:'Recommendations — fans out to catalog and review',      calls:'2-3 calls', on:true },
+  { id:'purchase', name:'Buy something',        desc:'Product, then place a real order through checkout',     calls:'3-4 calls', on:true },
+  { id:'funnel',   name:'Full purchase funnel', desc:'Categories to checkout in one pass — the deepest trace', calls:'6-7 calls', on:false },
+  { id:'research', name:'Deep research',        desc:'Two products compared, with reviews and recommendations', calls:'6 calls',  on:false },
+  { id:'review',   name:'Leave a review',       desc:'Post a review, occasionally an invalid one (422)',      calls:'2 calls',   on:false }
 ];
 
 const PRODUCT_IDS = ['item-1','item-2','item-6','item-9','item-10','item-13','item-17','item-21'];
@@ -295,6 +318,27 @@ const RUNNERS = {
       : { id: 'item-1', name: 'Wireless Precision Mouse', price: 29.99, qty: 1 };
     await call('POST', '/api/orders', { userId: 'shopper-' + Math.floor(Math.random() * 900), items: [item] });
   },
+  async funnel(think) {
+    await call('GET', '/api/catalog/categories'); await sleep(think);
+    const cat = pick(CATEGORIES);
+    await call('GET', `/api/catalog/products?category=${cat}&sort=rating`); await sleep(think);
+    const id = pick(PRODUCT_IDS);
+    const p = await call('GET', `/api/catalog/products/${id}`); await sleep(think);
+    await call('GET', `/api/products/${id}/reviews`);
+    await call('GET', `/api/products/${id}/recommendations`); await sleep(think);
+    const item = p.data && p.data.id
+      ? { id: p.data.id, name: p.data.name, price: p.data.price, qty: 1 }
+      : { id: 'item-1', name: 'Wireless Precision Mouse', price: 29.99, qty: 1 };
+    await call('POST', '/api/orders', { userId: 'funnel-' + Math.floor(Math.random() * 900), items: [item] });
+  },
+  async research(think) {
+    const [a, b] = [pick(PRODUCT_IDS), pick(PRODUCT_IDS)];
+    for (const id of [a, b]) {
+      await call('GET', `/api/catalog/products/${id}`);
+      await call('GET', `/api/products/${id}/reviews`); await sleep(think);
+      await call('GET', `/api/products/${id}/recommendations`); await sleep(think);
+    }
+  },
   async review(think) {
     const id = pick(PRODUCT_IDS);
     // One in four is deliberately invalid so the log shows a 422 among the successes.
@@ -307,41 +351,70 @@ const RUNNERS = {
   }
 };
 
-async function runLoad() {
-  if (running) return;
-  const selected = JOURNEYS.filter((j) => document.getElementById('j_' + j.id).checked).map((j) => j.id);
-  if (selected.length === 0) return;
+/* ── Scenarios: a mode plus the traffic that makes it visible. ────────── */
+const SCENARIOS = [
+  { id:'baseline', name:'Healthy baseline', mode:'normal',       journeys:['browse','search','discover'], vus:3, iters:3,
+    desc:'Normal traffic across the read path. The shape everything else is compared against.' },
+  { id:'checkout', name:'Checkout outage',  mode:'payment-503',  journeys:['purchase'],                   vus:2, iters:3,
+    desc:'Orders fail at the final hop. Watch the red flow stop at mock-payment-api.' },
+  { id:'coldcache',name:'Cold cache',       mode:'cache-miss',   journeys:['browse'],                     vus:3, iters:3,
+    desc:'Every catalogue read bypasses Redis and hits Postgres instead.' },
+  { id:'degraded', name:'Degraded dependency', mode:'reviews-503', journeys:['discover'],                 vus:2, iters:3,
+    desc:'Reviews are down. Recommendations still answer, just without review data.' },
+  { id:'slowstore',name:'Slow storefront',  mode:'browse-slow',  journeys:['browse','search'],            vus:2, iters:2,
+    desc:'Browsing crawls at 2s a page while checkout stays healthy.' },
+  { id:'mixed',    name:'Busy afternoon',   mode:'normal',       journeys:['browse','search','discover','purchase','funnel'], vus:4, iters:3,
+    desc:'Every journey at once. The fullest topology the demo produces.' }
+];
 
-  const vus = Math.min(20, Math.max(1, Number(document.getElementById('vus').value) || 1));
-  const iters = Math.min(50, Math.max(1, Number(document.getElementById('iters').value) || 1));
-  const think = Math.max(0, Number(document.getElementById('think').value) || 0);
+async function runScenario(id) {
+  const s = SCENARIOS.find((x) => x.id === id);
+  if (!s || running) return;
+  document.querySelectorAll('.scn').forEach((b) => (b.disabled = true));
+  document.getElementById('scnTag').textContent = s.name.toUpperCase();
+  await setMode(s.mode);
+  await runJourneys({ journeys: s.journeys, vus: s.vus, iters: s.iters, think: 220 });
+  await setMode('normal');
+  document.getElementById('scnTag').textContent = '';
+  document.querySelectorAll('.scn').forEach((b) => (b.disabled = false));
+}
 
+/* Shared by the manual runner and the scenarios. */
+async function runJourneys({ journeys, vus, iters, think }) {
+  if (journeys.length === 0) return;
   running = true; abort = false;
   const runBtn = document.getElementById('runBtn');
   const stopBtn = document.getElementById('stopBtn');
-  stopBtn.disabled = false;
+  stopBtn.disabled = false; runBtn.disabled = true;
 
   let done = 0;
   const total = vus * iters;
-  const tick = () => { runBtn.textContent = `Running ${++done}/${total}`; };
-
-  const shopper = async (n) => {
+  const shopper = async () => {
     for (let i = 0; i < iters; i++) {
       if (abort) return;
-      await RUNNERS[pick(selected)](think);
-      tick();
+      await RUNNERS[pick(journeys)](think);
+      runBtn.textContent = `Running ${++done}/${total}`;
       if (abort) return;
       await sleep(think + Math.random() * think);
     }
   };
-
-  runBtn.disabled = true;
-  await Promise.all(Array.from({ length: vus }, (_, n) => shopper(n)));
+  await Promise.all(Array.from({ length: vus }, () => shopper()));
 
   running = false;
   runBtn.disabled = false;
   runBtn.textContent = 'Run load';
   stopBtn.disabled = true;
+}
+
+async function runLoad() {
+  if (running) return;
+  const selected = JOURNEYS.filter((j) => document.getElementById('j_' + j.id).checked).map((j) => j.id);
+  await runJourneys({
+    journeys: selected,
+    vus: Math.min(20, Math.max(1, Number(document.getElementById('vus').value) || 1)),
+    iters: Math.min(50, Math.max(1, Number(document.getElementById('iters').value) || 1)),
+    think: Math.max(0, Number(document.getElementById('think').value) || 0)
+  });
 }
 
 function stopLoad() { abort = true; }
@@ -412,6 +485,9 @@ async function checkHealth() {
 }
 
 /* ── Boot ────────────────────────────────────────────────────────────── */
+document.getElementById('scenarios').innerHTML = SCENARIOS.map((s) =>
+  `<button class="scn" onclick="runScenario('${s.id}')"><b>${s.name}</b><span>${s.desc}</span><div class="meta">${s.mode} · ${s.vus}x${s.iters} · ${s.journeys.length} journey${s.journeys.length > 1 ? 's' : ''}</div></button>`).join('');
+
 document.getElementById('journeys').innerHTML = JOURNEYS.map((j) =>
   `<label class="journey">
      <input type="checkbox" id="j_${j.id}" ${j.on ? 'checked' : ''}>

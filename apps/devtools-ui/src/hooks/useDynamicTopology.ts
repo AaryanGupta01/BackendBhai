@@ -36,6 +36,15 @@ export interface GraphNode extends TopologyNode {
   y: number;
   layer: number;
   icon: any;
+  /**
+   * Traffic measured from the caller's side. Infrastructure a product depends on but
+   * does not instrument — a database, a cache, a third-party API — emits no server
+   * spans of its own, so its own span count is zero even under heavy load. The
+   * callers' client spans are the only record that exists of how busy it is.
+   */
+  inboundCalls: number;
+  inboundAvgMs: number;
+  inboundErrors: number;
   /** Populated only while a trace is selected. */
   traceTotalMs?: number;
   traceSelfMs?: number;
@@ -151,8 +160,21 @@ export function useDynamicTopology() {
       const index = peers.indexOf(n.id);
       const startY = CENTER_Y - ((peers.length - 1) * Y_SPACING) / 2;
       const step = stepByService.get(n.id);
+
+      // Roll up what the callers recorded, so uninstrumented dependencies still
+      // report the load they are actually under.
+      const inbound = snapshot.edges.filter((e) => e.target === n.id);
+      const inboundCalls = inbound.reduce((sum, e) => sum + e.requestCount, 0);
+      const inboundErrors = inbound.reduce((sum, e) => sum + e.errorCount, 0);
+      const inboundAvgMs = inboundCalls
+        ? Math.round(inbound.reduce((sum, e) => sum + e.avgDurationMs * e.requestCount, 0) / inboundCalls)
+        : 0;
+
       return {
         ...n,
+        inboundCalls,
+        inboundErrors,
+        inboundAvgMs,
         layer,
         x: BASE_X + layer * X_SPACING,
         y: startY + index * Y_SPACING,

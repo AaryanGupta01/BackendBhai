@@ -17,6 +17,16 @@ const CACHE_TTL_SECONDS = 30;
 app.use(express.json());
 app.use(bodyCaptureMiddleware);
 
+// Injected outage. Health stays up so the Ops Console can still show the service
+// as running while its API is deliberately failing.
+app.use((req, res, next) => {
+  if (req.path !== '/health' && normalizeHeader(req.headers['x-simulate-catalog-503']) === 'true') {
+    console.error('[CatalogService] Simulated outage (x-simulate-catalog-503)');
+    return res.status(503).json({ error: 'Catalog service unavailable', simulated: true });
+  }
+  next();
+});
+
 function normalizeHeader(value: string | string[] | undefined): string | undefined {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
@@ -126,7 +136,7 @@ app.get('/products', async (req: Request, res: Response) => {
   const sort = String(req.query.sort || 'featured');
   const simHeaders = {
     'x-simulate-cache-miss': normalizeHeader(req.headers['x-simulate-cache-miss']),
-    'x-simulate-slow': normalizeHeader(req.headers['x-simulate-slow'])
+    'x-simulate-slow': normalizeHeader(req.headers['x-simulate-slow']) || normalizeHeader(req.headers['x-simulate-browse-slow'])
   };
 
   if (simHeaders['x-simulate-slow'] === 'true') {

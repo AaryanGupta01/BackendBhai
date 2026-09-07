@@ -49,6 +49,10 @@ function getForwardHeaders(req: Request, opts?: { applyGlobalSimulation?: boolea
   if (req.headers['x-simulate-slow']) {
     headers['x-simulate-slow'] = req.headers['x-simulate-slow'] as string;
   }
+  for (const flag of ['x-simulate-cache-miss', 'x-simulate-catalog-503', 'x-simulate-reviews-503', 'x-simulate-browse-slow']) {
+    const v = req.headers[flag];
+    if (v) headers[flag] = Array.isArray(v) ? v[0] : (v as string);
+  }
   if (req.headers['x-simulate-503']) {
     headers['x-simulate-503'] = req.headers['x-simulate-503'] as string;
   }
@@ -69,7 +73,10 @@ function getForwardHeaders(req: Request, opts?: { applyGlobalSimulation?: boolea
     else if (mode === 'invalid-auth') headers['x-simulate-invalid-auth'] = 'true';
     else if (mode === 'payment-503') headers['x-simulate-503'] = 'true';
     else if (mode === 'slow-payment') headers['x-simulate-slow'] = 'true';
-    else if (mode === 'random') headers['x-simulate-random'] = 'true';
+    else if (mode === 'cache-miss') headers['x-simulate-cache-miss'] = 'true';
+    else if (mode === 'catalog-503') headers['x-simulate-catalog-503'] = 'true';
+    else if (mode === 'reviews-503') headers['x-simulate-reviews-503'] = 'true';
+    else if (mode === 'browse-slow') headers['x-simulate-browse-slow'] = 'true';
   }
 
   return headers;

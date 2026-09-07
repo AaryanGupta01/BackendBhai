@@ -12,6 +12,16 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://app:secret@localh
 app.use(express.json());
 app.use(bodyCaptureMiddleware);
 
+// Injected outage. Recommendations degrade rather than fail when this is on,
+// which is the interesting thing to watch in the trace.
+app.use((req, res, next) => {
+  if (req.path !== '/health' && normalizeHeader(req.headers['x-simulate-reviews-503']) === 'true') {
+    console.error('[ReviewService] Simulated outage (x-simulate-reviews-503)');
+    return res.status(503).json({ error: 'Review service unavailable', simulated: true });
+  }
+  next();
+});
+
 function normalizeHeader(value: string | string[] | undefined): string | undefined {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
