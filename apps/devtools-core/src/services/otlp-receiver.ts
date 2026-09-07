@@ -112,6 +112,7 @@ export class OtlpReceiver {
              if (!tracesMap.has(traceId)) {
                 tracesMap.set(traceId, {
                   id: traceId,
+                  is_root: !parentSpanId,
                   name: s.name,
                   root_service: serviceName,
                   start_time: startTimeMs,
@@ -132,6 +133,7 @@ export class OtlpReceiver {
                 const existing = tracesMap.get(traceId);
                 existing.services.add(serviceName);
                 if (!parentSpanId) {
+                  existing.is_root = true;
                   existing.root_service = serviceName;
                   existing.name = s.name;
                   existing.start_time = Math.min(existing.start_time, startTimeMs);
