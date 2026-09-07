@@ -6,3 +6,5 @@ dist/
 graphify-out/
 AGENTS.md
 dev*.md
+tmp/
+*.tmp

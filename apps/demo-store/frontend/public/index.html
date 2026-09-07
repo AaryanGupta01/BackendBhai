@@ -112,7 +112,7 @@
         </div>
         <div class="current-state-pill">
           <span class="pulse-dot" id="state-dot" style="background: #10b981;"></span>
-          <span>Per-request headers — no global mode</span>
+          <span>Global mode: <strong id="state-mode">NORMAL</strong></span>
         </div>
       </div>
 
@@ -161,7 +161,7 @@
       </div>
 
       <div class="chaos-info">
-        <span id="chaos-description">The selected simulation is applied per test request below — the Amazon Store stays unaffected and no polling traffic is generated.</span>
+        <span id="chaos-description">The selected simulation is published to the gateway as global state — it applies to Amazon Store (:4003) orders as well as the test requests below.</span>
       </div>
     </div>
 
@@ -278,15 +278,15 @@
     // Per-request simulation mode (local to this dashboard — no global state, no polling)
     let simMode = 'normal';
     const SIM_DESCRIPTIONS = {
-      'normal': 'No simulated failure — requests go through normally.',
-      'heavy': 'Test orders will include >10 items to trigger the 3s DB delay.',
-      'invalid-auth': 'Test orders will send an invalid auth token (5s timeout, 401).',
-      'slow-payment': 'Test orders will carry the x-simulate-slow header (5s payment delay).',
-      'payment-503': 'Test orders will carry the x-simulate-503 header (payment 503).',
-      'random': 'Each test request randomly gets slow (30%) or 503 (10%) headers.'
+      'normal': 'No simulated failure — all requests go through normally.',
+      'heavy': 'Every order (incl. Amazon Store) is expanded past 10 items to trigger the 3s DB delay.',
+      'invalid-auth': 'Every order (incl. Amazon Store) is sent with an invalid auth token (5s timeout, 401).',
+      'slow-payment': 'Every order (incl. Amazon Store) carries x-simulate-slow (5s payment delay).',
+      'payment-503': 'Every order (incl. Amazon Store) carries x-simulate-503 (payment returns 503).',
+      'random': 'Every order (incl. Amazon Store) randomly gets slow or 503 behaviour.'
     };
 
-    function setSimMode(mode) {
+    async function setSimMode(mode) {
       simMode = mode;
       document.querySelectorAll('.btn-toggle').forEach(el => el.classList.remove('active'));
       const activeBtn = document.getElementById(`mode-${mode}`);
@@ -294,10 +294,28 @@
 
       const descEl = document.getElementById('chaos-description');
       const dot = document.getElementById('state-dot');
+      const modeEl = document.getElementById('state-mode');
+      if (modeEl) modeEl.textContent = mode.toUpperCase();
       if (descEl) descEl.textContent = SIM_DESCRIPTIONS[mode] || '';
       if (dot) dot.style.background = (mode === 'normal') ? '#10b981' : (mode === 'invalid-auth' || mode === 'payment-503') ? '#ef4444' : '#8b5cf6';
 
       log(`Simulation mode for test requests: <strong>${mode.toUpperCase()}</strong>`, 'status-200');
+
+      // Publish to the gateway global simulation state so the mode also applies to
+      // orders placed on the Amazon Store (:4003), not just this dashboard. One POST
+      // per toggle — deliberately not polled, which is what flooded traces before.
+      try {
+        const res = await fetch(`${API_GATEWAY}/api/simulation/state`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const state = await res.json();
+        log(`Global mode set to <strong>${String(state.mode).toUpperCase()}</strong> — now applies to Amazon Store (:4003) too.`, 'status-200');
+      } catch (err) {
+        log(`Could not reach global simulation state (${err.message}) — this dashboard's own test orders still use per-request headers.`, 'status-500');
+      }
     }
 
     async function triggerTestOrder(overrideMode) {

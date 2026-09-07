@@ -4,11 +4,31 @@ import { wsHandler } from '../ws/handler.js';
 
 const repo = new TraceRepository();
 
-// OTLP JSON encodes traceId/spanId as base64. Convert to hex for DB storage.
+// Trace/span ids reach us in three encodings and must all land as hex:
+//  - OTLP/JSON (what the Collector sends with encoding: json) uses HEX already
+//  - protobuf decoded via toObject({ bytes: String }) yields base64
+//  - a raw Buffer when decoded straight from the wire
+// A hex id is exactly 32 chars (16-byte trace) or 16 chars (8-byte span); base64
+// of those is 24/12 chars and padded, so length + charset is an unambiguous test.
 function toHex(input: string | Buffer): string {
   if (!input) return '';
-  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input, 'base64');
-  return buf.toString('hex');
+  if (Buffer.isBuffer(input)) return input.toString('hex');
+  if ((input.length === 32 || input.length === 16) && /^[0-9a-f]+$/i.test(input)) {
+    return input.toLowerCase();
+  }
+  return Buffer.from(input, 'base64').toString('hex');
+}
+
+// Nanosecond timestamps exceed Number.MAX_SAFE_INTEGER, so parsing them as a
+// float loses precision and skews span durations by up to a millisecond.
+// BigInt division keeps the value exact before it is narrowed to millis.
+function nanosToMillis(nano: unknown): number {
+  if (nano === null || nano === undefined || nano === '') return 0;
+  try {
+    return Number(BigInt(typeof nano === 'number' ? Math.trunc(nano) : String(nano)) / 1000000n);
+  } catch {
+    return 0;
+  }
 }
 
 export class OtlpReceiver {
@@ -33,8 +53,8 @@ export class OtlpReceiver {
           const spanId = toHex(s.spanId);
           const parentSpanId = s.parentSpanId ? toHex(s.parentSpanId) : null;
           
-          const startTimeMs = Math.floor(parseInt(s.startTimeUnixNano || '0', 10) / 1000000);
-          const endTimeMs = Math.floor(parseInt(s.endTimeUnixNano || '0', 10) / 1000000);
+          const startTimeMs = nanosToMillis(s.startTimeUnixNano);
+          const endTimeMs = nanosToMillis(s.endTimeUnixNano);
           const durationMs = endTimeMs - startTimeMs;
 
           const attributes: any = {};
@@ -132,7 +152,7 @@ export class OtlpReceiver {
                for (const attr of event.attributes || []) {
                  logAttrs[attr.key] = attr.value?.stringValue ?? attr.value?.intValue ?? attr.value?.boolValue;
                }
-               const logTimeMs = Math.floor(parseInt(event.timeUnixNano || '0', 10) / 1000000);
+               const logTimeMs = nanosToMillis(event.timeUnixNano);
                allLogs.push({
                  trace_id: traceId,
                  span_id: spanId,

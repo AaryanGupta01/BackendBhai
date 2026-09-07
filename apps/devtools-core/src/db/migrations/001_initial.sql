@@ -55,7 +55,6 @@ CREATE INDEX IF NOT EXISTS idx_spans_span_type ON spans(span_type);
 CREATE INDEX IF NOT EXISTS idx_spans_trace_service ON spans(trace_id, service_name);
 CREATE INDEX IF NOT EXISTS idx_spans_start_time ON spans(start_time);
 CREATE INDEX IF NOT EXISTS idx_spans_attributes ON spans USING GIN(attributes);
-CREATE INDEX IF NOT EXISTS idx_log_events_trace_id ON log_events(trace_id);
 
 CREATE TABLE IF NOT EXISTS span_events (
     id SERIAL PRIMARY KEY,

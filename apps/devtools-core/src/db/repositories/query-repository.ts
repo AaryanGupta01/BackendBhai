@@ -1,5 +1,7 @@
 import { pool, isDbAvailable } from '../connection.js';
-import * as inMemoryStore from '../../fixtures/in-memory-store.js';export class QueryRepository {
+import * as inMemoryStore from '../../fixtures/in-memory-store.js';
+
+export class QueryRepository {
   async getRequestsSummary(params: any = {}) {
     if (!isDbAvailable()) {
       return inMemoryStore.getRequestsSummary(params);
@@ -374,4 +376,8 @@ import * as inMemoryStore from '../../fixtures/in-memory-store.js';export class 
       return inMemoryStore.getTopology();
     }
   }
+}
+
+export function getRepository(): QueryRepository {
+  return new QueryRepository();
 }

@@ -180,7 +180,7 @@
     <!-- Live link to Failure Simulator (no polling, no global chaos state) -->
     <div class="chaos-pill">
       <span class="chaos-dot" id="chaos-indicator-dot" style="background: #10b981;"></span>
-      <span>Failure Simulator: <strong style="color: #67e8f9;">PER-REQUEST</strong></span>
+      <span>Failure Mode: <strong id="chaos-mode-label" style="color: #67e8f9;">…</strong></span>
       <a href="http://localhost:4002" target="_blank" class="link-control">Simulator (:4002) ↗</a>
     </div>
   </div>
@@ -468,9 +468,25 @@
       document.getElementById('checkout-modal').classList.remove('open');
     }
 
-    // NOTE: chaos-state polling removed — it was flooding the DevTools trace
-    // list with GET /api/chaos-state requests every 1.5 seconds. Failure
-    // simulation is now per-request via headers from the Simulator (:4002).
+    // Read the gateway global simulation mode set from the Failure Simulator (:4002).
+    // Fetched on load and after each order only — never polled, since a 1.5s poll is
+    // what previously flooded the DevTools trace list.
+    async function refreshSimulationMode() {
+      const label = document.getElementById('chaos-mode-label');
+      const dot = document.getElementById('chaos-indicator-dot');
+      try {
+        const res = await fetch(`${API_GATEWAY}/api/simulation/state`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const state = await res.json();
+        const mode = (state.active && state.mode) ? state.mode : 'normal';
+        if (label) label.textContent = mode.toUpperCase();
+        if (dot) dot.style.background = mode === 'normal' ? '#10b981' : '#ef4444';
+      } catch (err) {
+        if (label) label.textContent = 'UNAVAILABLE';
+        if (dot) dot.style.background = '#6b7280';
+      }
+    }
+    refreshSimulationMode();
 
     // Place order through API Gateway
     async function submitAmazonOrder() {
