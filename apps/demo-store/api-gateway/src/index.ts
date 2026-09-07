@@ -12,6 +12,9 @@ const port = process.env.PORT || 3000;
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:3002';
+const CATALOG_SERVICE_URL = process.env.CATALOG_SERVICE_URL || 'http://localhost:3004';
+const REVIEW_SERVICE_URL = process.env.REVIEW_SERVICE_URL || 'http://localhost:3005';
+const RECOMMENDATION_SERVICE_URL = process.env.RECOMMENDATION_SERVICE_URL || 'http://localhost:3006';
 
 app.use(express.json());
 
@@ -227,6 +230,89 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 // emitTelemetry() helper POSTed a fabricated summary to localhost:4001 - a port
 // nothing listens on inside this container - which failed on every request and
 // added a bogus "localhost" dependency to the discovered topology.
+
+
+// ─── Storefront read paths ─────────────────────────────────────────────
+// Each of these is a distinct call chain, which is what gives the topology graph
+// something worth showing: catalogue reads hit Postgres through a Redis cache, and
+// recommendations fan out to two services before returning.
+
+app.get('/api/catalog/categories', async (req: Request, res: Response) => {
+  try {
+    const result = await forwardRequest(`${CATALOG_SERVICE_URL}/categories`, 'GET', getForwardHeaders(req));
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Catalog service unavailable', message: err.message });
+  }
+});
+
+app.get('/api/catalog/search', async (req: Request, res: Response) => {
+  const q = encodeURIComponent(String(req.query.q || ''));
+  try {
+    const result = await forwardRequest(`${CATALOG_SERVICE_URL}/search?q=${q}`, 'GET', getForwardHeaders(req));
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Search unavailable', message: err.message });
+  }
+});
+
+app.get('/api/catalog/products/:id', async (req: Request, res: Response) => {
+  try {
+    const result = await forwardRequest(`${CATALOG_SERVICE_URL}/products/${req.params.id}`, 'GET', getForwardHeaders(req));
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Catalog service unavailable', message: err.message });
+  }
+});
+
+app.get('/api/catalog/products', async (req: Request, res: Response) => {
+  const category = encodeURIComponent(String(req.query.category || 'all'));
+  const sort = encodeURIComponent(String(req.query.sort || 'featured'));
+  try {
+    const result = await forwardRequest(
+      `${CATALOG_SERVICE_URL}/products?category=${category}&sort=${sort}`,
+      'GET',
+      getForwardHeaders(req)
+    );
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Catalog service unavailable', message: err.message });
+  }
+});
+
+app.get('/api/products/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const result = await forwardRequest(`${REVIEW_SERVICE_URL}/reviews/${req.params.id}`, 'GET', getForwardHeaders(req));
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Review service unavailable', message: err.message });
+  }
+});
+
+app.post('/api/products/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const result = await forwardRequest(`${REVIEW_SERVICE_URL}/reviews`, 'POST', getForwardHeaders(req), {
+      ...req.body,
+      productId: req.params.id
+    });
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Review service unavailable', message: err.message });
+  }
+});
+
+app.get('/api/products/:id/recommendations', async (req: Request, res: Response) => {
+  try {
+    const result = await forwardRequest(
+      `${RECOMMENDATION_SERVICE_URL}/recommendations/${req.params.id}`,
+      'GET',
+      getForwardHeaders(req)
+    );
+    res.status(result.statusCode).json(result.data);
+  } catch (err: any) {
+    res.status(502).json({ error: 'Recommendation service unavailable', message: err.message });
+  }
+});
 
 app.listen(port, () => {
   console.log(`API Gateway listening on port ${port}`);

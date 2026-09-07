@@ -15,7 +15,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SRC_PKG = path.join(ROOT, 'apps', 'telemetry-collector');
 const SRC_DIST = path.join(SRC_PKG, 'dist');
-const SERVICES = ['api-gateway', 'auth-service', 'order-service', 'payment-service'];
+const SERVICES = ['api-gateway', 'auth-service', 'order-service', 'payment-service', 'catalog-service', 'review-service', 'recommendation-service'];
 const CHECK = process.argv.includes('--check');
 
 function listFilesRecursive(dir) {

@@ -705,18 +705,33 @@ export default function App() {
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ zIndex: 20 }}
             >
-              {renderableEdges.map(({ edge, mx, my, isDimmed, showsHop, hopMs, flowState }) => (
-                <text
+              {renderableEdges.map(({ edge, mx, my, isDimmed, showsHop, hopMs, flowState }) => {
+                const label = showsHop
+                  ? `${hopMs}ms`
+                  : `${edge.avgDurationMs}ms avg${edge.errorCount > 0 ? ` · ${edge.errorCount} err` : ''}`;
+                // Monospace at 11px runs about 6.3px per character. A solid chip behind
+                // the text is what keeps it readable where an edge midpoint lands on a
+                // node card: a stroke halo alone still lets the card's text show through.
+                const chipW = label.length * 6.3 + 10;
+                return (
+                <g
                   key={edge.id}
+                  className={`transition-opacity duration-300 ${isDimmed ? 'opacity-25' : 'opacity-100'}`}
+                >
+                <rect
+                  x={mx - chipW / 2}
+                  y={my - 21}
+                  width={chipW}
+                  height={16}
+                  rx={3}
+                  className="fill-earth-base stroke-earth-border"
+                  strokeWidth="1"
+                />
+                <text
                   x={mx}
                   y={my - 9}
                   textAnchor="middle"
-                  stroke="var(--color-earth-base)"
-                  strokeWidth="4"
-                  paintOrder="stroke"
-                  className={`text-[11px] font-mono font-semibold transition-opacity duration-300 ${
-                    isDimmed ? 'opacity-25' : 'opacity-100'
-                  }`}
+                  className="text-[11px] font-mono font-semibold"
                 >
                   {showsHop ? (
                     // Inspecting one request: report that request's own hop time,
@@ -741,7 +756,9 @@ export default function App() {
                     </>
                   )}
                 </text>
-              ))}
+                </g>
+                );
+              })}
             </svg>
 
 

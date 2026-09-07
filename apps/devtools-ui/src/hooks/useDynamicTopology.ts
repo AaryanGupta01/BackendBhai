@@ -25,7 +25,9 @@ const FALLBACK_ICON = Shield;
 // Layout constants. These are presentation, not data.
 // Wide enough that an edge label fits in the gap between two node cards (192px wide).
 const X_SPACING = 340;
-const Y_SPACING = 150;
+// Node cards are ~132px tall; this leaves room for an edge label to pass between
+// two nodes in the same layer without landing on either card.
+const Y_SPACING = 205;
 const BASE_X = 150;
 const CENTER_Y = 330;
 
