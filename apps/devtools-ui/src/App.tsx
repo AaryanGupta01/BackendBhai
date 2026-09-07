@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   Search, AlertCircle, CheckCircle2, Activity, RefreshCw, X, TerminalSquare,
-  Settings, ChevronDown, Play, Zap, PanelBottomClose, PanelBottomOpen
+  Play, PanelBottomClose, PanelBottomOpen
 } from 'lucide-react';
 import { useDynamicTopology } from './hooks/useDynamicTopology';
 import { websocketUrl } from './config';
@@ -270,22 +270,6 @@ export default function App() {
           })}
         </div>
 
-        <div className="p-4 mt-auto">
-          <hr className="border-earth-border mb-4" />
-          <div className="flex items-center gap-3 px-2 py-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors text-earth-muted">
-            <Settings className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings</span>
-          </div>
-          <div className="flex items-center justify-between px-2 py-2 mt-2 hover:bg-earth-base rounded-lg cursor-pointer transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-earth-accent/80 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                JD
-              </div>
-              <span className="text-sm font-medium text-earth-text">Jane Doe</span>
-            </div>
-            <ChevronDown className="w-4 h-4 text-earth-muted" />
-          </div>
-        </div>
       </aside>
 
       {/* ================= 2. MAIN SECTION ================= */}
@@ -299,16 +283,22 @@ export default function App() {
                   ? 'Highlighted services took part in the selected trace. Latency is per hop.'
                   : 'Discovered from telemetry. Hover a node to trace pathways, select a request to diagnose.'}
               </p>
-              <button
-                onClick={refresh}
-                disabled={loading}
-                style={{ backgroundColor: '#5C4033', color: 'white' }}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl hover:opacity-90 disabled:opacity-60 transition-all shadow-lg text-sm font-bold cursor-pointer"
-              >
-                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-yellow-400 text-yellow-400" />}
-                {loading ? 'Refreshing…' : 'Refresh Topology'}
-              </button>
-              {error && <p className="text-earth-error text-xs mt-3">{error}</p>}
+              {/* The graph loads on mount and re-reads itself on every live request,
+                  so there is no refresh action to offer. A retry only appears when
+                  loading actually failed. */}
+              {loading && (
+                <p className="flex items-center gap-2 text-earth-muted text-xs">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading topology…
+                </p>
+              )}
+              {error && (
+                <p className="text-earth-error text-xs flex items-center gap-2">
+                  {error}
+                  <button onClick={refresh} className="underline hover:no-underline font-semibold">
+                    Try again
+                  </button>
+                </p>
+              )}
             </div>
 
             <div className="relative w-[1100px] h-[700px] shrink-0 mx-auto" onClick={() => setSelectedNodeId(null)}>
