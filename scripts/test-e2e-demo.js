@@ -26,7 +26,7 @@ function waitPort(port) {
   });
 }
 
-function httpJson(urlStr, method = 'GET', body = null) {
+function httpJson(urlStr, method = 'GET', body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(urlStr);
     const payload = body ? JSON.stringify(body) : null;
@@ -37,7 +37,8 @@ function httpJson(urlStr, method = 'GET', body = null) {
       method,
       headers: {
         'content-type': 'application/json',
-        ...(payload ? { 'content-length': Buffer.byteLength(payload) } : {})
+        ...(payload ? { 'content-length': Buffer.byteLength(payload) } : {}),
+        ...extraHeaders
       }
     }, (res) => {
       let data = '';
@@ -99,68 +100,64 @@ function httpJson(urlStr, method = 'GET', body = null) {
       console.log('  ✔ Amazon Storefront UI (:4003) verified.');
     }
 
-    console.log('\n[4/5] Testing Dynamic Chaos Synchronization:');
-    
-    // Scenario A: Normal mode
-    console.log('  -> Setting Master Chaos Mode to [NORMAL]...');
-    await httpJson('http://localhost:3000/api/chaos-state', 'POST', { mode: 'normal' });
+    console.log('\n[4/5] Testing Per-Request Failure Simulation (headers):');
+
+    // Scenario A: Normal order
+    console.log('  -> Placing NORMAL order (no simulation headers)...');
     const normalOrderStart = Date.now();
     const normalOrder = await httpJson('http://localhost:3000/api/orders', 'POST', {
       userId: 'user-42',
       items: [{ id: 'item-1', name: 'Mechanical Keyboard', qty: 1, price: 89.99 }]
     });
     const normalElapsed = Date.now() - normalOrderStart;
-    console.log(`     Amazon Order Result: HTTP ${normalOrder.statusCode} in ${normalElapsed}ms (Mode: ${normalOrder.data.activeChaosMode})`);
+    console.log(`     Order Result: HTTP ${normalOrder.statusCode} in ${normalElapsed}ms`);
     if (normalOrder.statusCode !== 201 || normalElapsed > 1500) {
       throw new Error(`Normal order expected ~200ms 201, got ${normalOrder.statusCode} in ${normalElapsed}ms`);
     }
 
-    // Scenario B: Heavy Order mode (toggled on Master, affects Amazon order)
-    console.log('  -> Toggling Master Chaos Mode to [HEAVY] (expecting 3s DB delay)...');
-    await httpJson('http://localhost:3000/api/chaos-state', 'POST', { mode: 'heavy' });
+    // Scenario B: Heavy Order (>10 items → 3s DB delay)
+    console.log('  -> Placing HEAVY order (>10 items, expecting 3s DB delay)...');
+    const heavyItems = [];
+    for (let i = 1; i <= 12; i++) {
+      heavyItems.push({ id: `item-${i}`, name: `Bulk Item #${i}`, qty: 1, price: 10.00 });
+    }
     const heavyOrderStart = Date.now();
     const heavyOrder = await httpJson('http://localhost:3000/api/orders', 'POST', {
       userId: 'user-42',
-      items: [{ id: 'item-1', name: 'Mechanical Keyboard', qty: 1, price: 89.99 }]
+      items: heavyItems
     });
     const heavyElapsed = Date.now() - heavyOrderStart;
-    console.log(`     Amazon Order Result: HTTP ${heavyOrder.statusCode} in ${heavyElapsed}ms (Mode: ${heavyOrder.data.activeChaosMode})`);
+    console.log(`     Order Result: HTTP ${heavyOrder.statusCode} in ${heavyElapsed}ms`);
     if (heavyElapsed < 2800) {
       throw new Error(`Heavy order expected >= 3000ms delay, got ${heavyElapsed}ms`);
     }
 
-    // Scenario C: Auth Timeout mode (toggled on Master, affects Amazon order)
-    console.log('  -> Toggling Master Chaos Mode to [INVALID-AUTH] (expecting 5s timeout error)...');
-    await httpJson('http://localhost:3000/api/chaos-state', 'POST', { mode: 'invalid-auth' });
+    // Scenario C: Auth Timeout (invalid token)
+    console.log('  -> Placing order with INVALID AUTH (expecting 5s timeout error)...');
     const authOrderStart = Date.now();
     const authOrder = await httpJson('http://localhost:3000/api/orders', 'POST', {
       userId: 'user-42',
       items: [{ id: 'item-1', name: 'Mechanical Keyboard', qty: 1, price: 89.99 }]
-    });
+    }, { Authorization: 'Bearer invalid' });
     const authElapsed = Date.now() - authOrderStart;
-    console.log(`     Amazon Order Result: HTTP ${authOrder.statusCode} in ${authElapsed}ms (Error: ${authOrder.data.error})`);
+    console.log(`     Order Result: HTTP ${authOrder.statusCode} in ${authElapsed}ms (Error: ${authOrder.data.error})`);
     if (authOrder.statusCode !== 401 || authElapsed < 4800) {
       throw new Error(`Auth timeout expected 401 in >= 5000ms, got ${authOrder.statusCode} in ${authElapsed}ms`);
     }
 
-    // Scenario D: Payment 503 mode (toggled on Master, affects Amazon order)
-    console.log('  -> Toggling Master Chaos Mode to [PAYMENT-503] (expecting 503 failure)...');
-    await httpJson('http://localhost:3000/api/chaos-state', 'POST', { mode: 'payment-503' });
+    // Scenario D: Payment 503 (header-based simulation)
+    console.log('  -> Placing order with x-simulate-503 (expecting 503 failure)...');
     const payOrder = await httpJson('http://localhost:3000/api/orders', 'POST', {
       userId: 'user-42',
       items: [{ id: 'item-1', name: 'Mechanical Keyboard', qty: 1, price: 89.99 }]
-    });
-    console.log(`     Amazon Order Result: HTTP ${payOrder.statusCode} (Error: ${payOrder.data.error})`);
+    }, { 'x-simulate-503': 'true' });
+    console.log(`     Order Result: HTTP ${payOrder.statusCode} (Error: ${payOrder.data.error})`);
     if (payOrder.statusCode !== 503) {
       throw new Error(`Payment 503 expected HTTP 503, got ${payOrder.statusCode}`);
     }
 
-    console.log('\n[5/5] Resetting Chaos State to NORMAL...');
-    await httpJson('http://localhost:3000/api/chaos-state', 'POST', { mode: 'normal' });
-
     console.log('\n======================================================');
-    console.log('   AMAZON STOREFRONT & MASTER ERROR INJECTOR          ');
-    console.log('   DYNAMIC CHAOS SYNCHRONIZATION 100% VERIFIED!        ');
+    console.log('   PER-REQUEST FAILURE SIMULATION 100% VERIFIED!       ');
     console.log('======================================================\n');
   } catch (err) {
     console.error('Test failed:', err);

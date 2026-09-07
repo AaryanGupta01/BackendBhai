@@ -1,10 +1,16 @@
+import { initTracing, patchConsoleLogs, bodyCaptureMiddleware } from '../lib/telemetry/index';
 import express, { Request, Response } from 'express';
 import { maybeInjectAuthTimeout } from './failures';
+
+// Initialize telemetry BEFORE anything else
+initTracing('auth-service');
+patchConsoleLogs('auth-service');
 
 const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.json());
+app.use(bodyCaptureMiddleware);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'auth-service', timestamp: new Date().toISOString() });

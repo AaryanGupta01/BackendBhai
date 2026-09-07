@@ -67,7 +67,17 @@ export class TraceRepository {
         request_count = service_dependencies.request_count + 1
     `;
     for (const dep of deps) {
-      await pool.query(query, [dep.source, dep.target, dep.type]);
+      // Defensive: skip dependencies referencing unknown services instead of
+      // failing (FK violation) and dropping the entire OTLP batch.
+      try {
+        await pool.query(query, [dep.source, dep.target, dep.type]);
+      } catch (err: any) {
+        if (err?.code === '23503') {
+          console.warn(`[TraceRepository] Skipping dependency with unknown service: ${dep.source} -> ${dep.target}`);
+          continue;
+        }
+        throw err;
+      }
     }
   }
 }
