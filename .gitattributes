@@ -1,0 +1,11 @@
+# Files that are executed or parsed inside Linux containers must keep LF endings.
+# Without this, a clone on Windows converts them to CRLF and Postgres fails to
+# initialise with "/bin/bash^M: bad interpreter", taking the whole stack down.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.sql       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Keep the lockfile stable across platforms.
+pnpm-lock.yaml text eol=lf -diff
